@@ -1,14 +1,15 @@
-import express from "express";
-import authRouter from "./routes/auth.route.js";
-import messageRouter from "./routes/message.route.js";
+const express = require("express");
+
+const authRouter = require("./routes/auth.route.js");
+const messageRouter = require("./routes/message.route.js");
 
 const app = express();
 
-app.get("/", function (_req, res) {
+app.get("/", function (req, res) {
   res.status(200).json({ status: "Healthy" });
 });
 
-app.use("/api/v1/auth", authRouter);
-app.use("/api/v1/messages", messageRouter);
+app.use("/api/v1/auth/", authRouter);
+app.use("/api/v1/auth/", messageRouter);
 
-export default app;
+module.exports = app;

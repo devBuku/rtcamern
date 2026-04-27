@@ -1,8 +1,6 @@
-import { Router } from "express";
-const router = Router();
+const express = require("express");
+const router = express.Router();
 
-router.get("/send", function (req, res) {
-  res.send("Send message endpoint");
-});
+router.get("/send");
 
-export default router;
+module.exports = router;
