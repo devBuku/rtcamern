@@ -4,7 +4,12 @@ dotenv.config({ quiet: true });
 import express from "express";
 import path from "path";
 
+import { connectToDb } from "./lib/db.js";
+import authRouter from "./routes/auth.route.js";
+
 const app = express();
+
+app.use(express.json());
 
 const port = process.env.PORT || 3000;
 
@@ -14,7 +19,7 @@ app.get("/health", function (_req, res) {
   res.status(200).json({ status: "Healthy" });
 });
 
-// app.use("/api/v1/auth/", authRouter);
+app.use("/api/v1/auth/", authRouter);
 // app.use("/api/v1/auth/", messageRouter);
 
 if (process.env.NODE_ENV === "production") {
@@ -25,6 +30,11 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-app.listen(port, function () {
-  console.log(`App is listening to port ${port}`);
-});
+async function startServer() {
+  await connectToDb();
+  app.listen(port, function () {
+    console.log(`App is listening to port ${port}`);
+  });
+}
+
+startServer();
