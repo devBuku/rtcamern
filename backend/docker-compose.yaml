@@ -1,0 +1,9 @@
+services:
+  mongo:
+    image: mongo
+    container_name: rtcamern
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./data_mongo:/data/db
+    restart: unless-stopped
