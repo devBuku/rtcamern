@@ -3,6 +3,7 @@ dotenv.config({ quiet: true });
 
 import express from "express";
 import path from "path";
+import cookieParser from "cookie-parser";
 
 import { connectToDb } from "./lib/db.js";
 import authRouter from "./routes/auth.route.js";
@@ -11,6 +12,7 @@ import { ENV } from "./lib/env.js";
 const app = express();
 
 app.use(express.json());
+app.use(cookieParser());
 
 const port = ENV.PORT;
 
