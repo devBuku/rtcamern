@@ -8,8 +8,8 @@ export const signup = async function (req, res) {
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
+  const { email, password, fullname } = req.body;
   try {
-    const { email, password, fullname } = req.body;
     const user = await User.findOne({ email: email });
     if (user) return res.status(409).json({ message: `User already exists` });
     const salt = await bcrypt.genSalt(10);
@@ -36,4 +36,35 @@ export const signup = async function (req, res) {
     console.log(`Error in signup controller: ${error}`);
     res.status(500).json({ message: `Internal Server Error` });
   }
+};
+
+export const login = async function (req, res) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty())
+    return res.status(400).json({ errors: errors.array() });
+  const { email, password } = req.body;
+  try {
+    const user = await User.findOne({ email: email });
+    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch)
+      return res.status(400).json({ message: "Invalid credentials" });
+
+    generateToken(user._id, res);
+
+    res.status(200).json({
+      _id: user._id,
+      fullname: user.fullname,
+      email: user.email,
+      profilePic: user.profilePic,
+    });
+  } catch (error) {
+    console.error(`Error in login controller: ${error}`);
+    res.status(500).json({ message: `Internal Server Error` });
+  }
+};
+
+export const logout = function (_req, res) {
+  res.cookie("jwt", "", { maxAge: 0 });
+  res.status(200).json({ message: "Logged out successfully" });
 };
