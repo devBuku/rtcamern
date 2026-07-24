@@ -1,34 +1,36 @@
 # rtcamern
 
-MERN + Socket.io chat app. Monorepo with `server/` and `client/`.
+MERN + Socket.io chat app. Monorepo with `backend/` and `frontend/`.
 
 ## Structure
 
-- `server/` — Express (ESM, Node.js), entry `src/server.js` → `app.js` (currently skeleton: only `/health` route). Empty dirs exist for `config/`, `routes/`, `models/`, `controllers/`, `lib/`, `webhooks/`.
-- `client/` — React 19 + Vite 8 with React Compiler enabled. Entry `src/main.jsx`.
+- `backend/` — Express (ESM, Node.js), entry `src/server.js` → `src/app.js`. Routes: `/api/auth`, `/api/messages`. Models dir exists but is empty. Controllers: `auth.controller.js`. MongoDB via Mongoose.
+- `frontend/` — React 19 + Vite 8. Entry `src/main.jsx`. Plain `@vitejs/plugin-react` (no React Compiler, no SWC).
 
 ## Commands
 
+All use **npm** (not pnpm — pnpm will fail `devEngines` check).
+
 | Package | Command | Notes |
 |---------|---------|-------|
-| server | `pnpm dev` | Nodemon on `src/server.js` — requires MongoDB |
-| client | `pnpm dev` | Vite dev server |
-| client | `pnpm build` | Vite production build |
-| client | `pnpm lint` | ESLint (flat config, `eslint.config.js`) |
-| client | `pnpm preview` | Vite preview server |
+| backend | `npm run dev` | Nodemon on `src/server.js` — requires MongoDB |
+| backend | `npm start` | `node ./src/server.js` |
+| frontend | `npm run dev` | Vite dev server |
+| frontend | `npm run build` | Vite production build |
+| frontend | `npm run lint` | ESLint (flat config, `eslint.config.js`) |
+| frontend | `npm run preview` | Vite preview server |
+| root | `npm run build` | Installs deps in both packages + builds frontend |
 
 No tests exist on either side.
 
 ## Prerequisites
 
-- **pnpm** (>=11.14) — required by both packages (`devEngines` check in server `package.json`)
-- **MongoDB** — `docker compose up` in `server/` starts a `mongo` container on port 27017
-- `.env` — copy `server/.env.example` to `server/.env`; default `PORT=3000`
+- **MongoDB** — `docker compose up` in `backend/` starts a `mongo` container named `rtcamern` on port 27017
+- `.env` — copy `backend/.env.example` to `backend/.env`; defaults: `PORT=3000`, `MONGO_URI=mongodb://localhost:27017/rtcamern`
 
 ## Conventions
 
-- ESM throughout (`"type": "module"` in both `package.json`)
+- ESM in both packages (`"type": "module"`); root `package.json` is `"commonjs"` (root scripts only)
 - `.js` extensions for all imports (no `.mjs`)
-- Client uses JSX (`.jsx`), not TypeScript
+- Client uses `.jsx`, not TypeScript (but `@types/react` are installed as dev deps)
 - Server side is JavaScript only
-- React Compiler is active on the client (Babel plugin in `vite.config.js`)

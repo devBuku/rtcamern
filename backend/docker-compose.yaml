@@ -1,5 +1,6 @@
 volumes:
   mongo_data:
+    name: rtcamern_mongo_data
 
 services:
   mongo:
