@@ -4,6 +4,7 @@ import cors from "cors";
 import { Express, Request, Response } from "express";
 import { clerkMiddleware } from "@clerk/express";
 import { FRONTEND_URL, PORT } from "./constants/env";
+import { NOT_FOUND, OK } from "./constants/http-status";
 import connectToDb from "./lib/db";
 
 const app: Express = express();
@@ -21,12 +22,12 @@ app.use(clerkMiddleware());
 app.get(
   "/health",
   function (_req: Request, res: Response<{ ok: boolean }>): void {
-    res.status(200).json({ ok: true });
+    res.status(OK).json({ ok: true });
   },
 );
 
 app.use(function (_req, res: Response<{ message: string; ok: boolean }>): void {
-  res.status(404).json({ message: "Route not found", ok: false });
+  res.status(NOT_FOUND).json({ message: "Route not found", ok: false });
 });
 
 (async function () {
