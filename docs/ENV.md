@@ -19,6 +19,7 @@ Backend environment variables live in `backend/.env`. An example is provided in 
 | **`MONGO_URI`** | `string` | Yes (prod) | `mongodb://your-production-mongo-uri` | MongoDB connection string (without database name) used when `NODE_ENV=production`. | Use MongoDB Atlas or production URI. |
 | **`MONGO_URI_DOCKER`** | `string` | Optional (dev/test) | `mongodb://localhost:27017` | MongoDB connection string (without database name) used when `NODE_ENV=development` or `test`. | Preferred for local Docker dev. If not set, falls back to `MONGO_URI`. |
 | **`DB_NAME`** | `string` | Optional | `rtcamern` | Database name passed to Mongoose (`dbName`). | Kept separate from URI so same cluster can host multiple databases cleanly. |
+| **`FRONTEND_URL`** | `string` | Optional | `http://localhost:5173` | Frontend URL allowed for CORS and used for allowed origins. | Update on deployment (e.g., Netlify/Vercel URL). |
 
 ### Planned Variables (To be added as implemented)
 
@@ -28,7 +29,6 @@ These will be added as authentication, media, webhooks, and deployment features 
 |---|---|---|---|---|
 | **`CLERK_SECRET_KEY`** | `string` | Yes (Auth) | Clerk backend API key for verifying JWTs and calling Clerk APIs. | [Clerk Dashboard → API Keys → Secret Keys](https://dashboard.clerk.com/last-active?path=api-keys) |
 | **`CLERK_WEBHOOK_SECRET`** | `string` | Yes (Webhooks) | Webhook signing secret to verify Clerk webhook events. | [Clerk Dashboard → Webhooks → Signing Secret](https://dashboard.clerk.com/last-active?path=webhooks) |
-| **`CLIENT_URL`** | `string` | Yes (CORS + Socket.IO) | Frontend URL allowed for CORS and used for allowed origins. | `http://localhost:5173` for local dev. Update on deployment (e.g., Netlify URL). |
 | **`IMAGEKIT_PUBLIC_KEY`** | `string` | Yes (Media) | ImageKit public key for client-side uploads (if used) and SDK auth. | [ImageKit Dashboard → Developer Options → API Keys](https://imagekit.io/dashboard/developer/api-keys) |
 | **`IMAGEKIT_PRIVATE_KEY`** | `string` | Yes (Media) | ImageKit private key for server-side uploads. **Never expose to frontend.** | Same as above. |
 | **`IMAGEKIT_URL_ENDPOINT`** | `string` | Yes (Media) | ImageKit URL endpoint (e.g., `https://ik.imagekit.io/your_id/`). | [ImageKit Dashboard → URL Endpoints](https://imagekit.io/dashboard/url-endpoints) |

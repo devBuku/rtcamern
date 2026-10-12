@@ -79,6 +79,7 @@ You can choose either Render or Railway. Both support Node.js apps and free tier
    - `CLIENT_URL` – Frontend URL (Netlify/Vercel)
    - `IMAGEKIT_PUBLIC_KEY`, `IMAGEKIT_PRIVATE_KEY`, `IMAGEKIT_URL_ENDPOINT`
    - `NODE_ENV=production`
+   - `FRONTEND_URL` – Your deployed frontend URL (e.g., Netlify/Vercel)
 
 6. Create Web Service. Render will build and deploy.
 7. Get the public URL (e.g., `https://rtcamern-backend.onrender.com`)
@@ -156,12 +157,12 @@ In backend, configure CORS to allow frontend origin only:
 ```ts
 import cors from "cors";
 app.use(cors({
-  origin: [process.env.CLIENT_URL, "http://localhost:5173"],
+  origin: process.env.FRONTEND_URL,
   credentials: true
 }));
 ```
 
-This is critical for REST + Socket.IO to work cross-origin.
+This is critical for REST + Socket.IO to work cross-origin. You can also set an array if multiple origins are needed.
 
 See [`MIDDLEWARE.md`](./MIDDLEWARE.md) for middleware details.
 

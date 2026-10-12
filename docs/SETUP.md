@@ -57,6 +57,7 @@ PORT=3000
 MONGO_URI=mongodb://your-production-mongo-uri
 MONGO_URI_DOCKER=mongodb://localhost:27017
 DB_NAME=rtcamern
+FRONTEND_URL=http://localhost:5173
 ```
 
 - `NODE_ENV`: Environment mode (`development`, `production`, or `test`). In production uses `MONGO_URI`; in development/test prefers `MONGO_URI_DOCKER` (falls back to `MONGO_URI`).
@@ -64,6 +65,7 @@ DB_NAME=rtcamern
 - `MONGO_URI`: MongoDB connection string (without DB name) for production.
 - `MONGO_URI_DOCKER`: MongoDB connection string (without DB name) for local development/test (used with Docker).
 - `DB_NAME`: Database name (default: `rtcamern`).
+- `FRONTEND_URL`: Frontend URL for CORS (default: `http://localhost:5173`).
 
 See [`ENV.md`](./ENV.md) for detailed explanations of all environment variables (including Clerk, ImageKit, etc. as they are added).
 

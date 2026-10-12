@@ -42,3 +42,5 @@ function getMongoUri(): string {
 export const MONGO_URI = getMongoUri();
 
 export const DB_NAME = getEnv("DB_NAME", "rtcamern");
+
+export const FRONTEND_URL = getEnv("FRONTEND_URL", "http://localhost:5173");

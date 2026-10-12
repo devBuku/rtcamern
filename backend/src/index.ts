@@ -1,10 +1,22 @@
 import "dotenv/config";
 import express from "express";
+import cors from "cors";
 import { Express, Request, Response } from "express";
-import { PORT } from "./constants/env";
+import { clerkMiddleware } from "@clerk/express";
+import { FRONTEND_URL, PORT } from "./constants/env";
 import connectToDb from "./lib/db";
 
 const app: Express = express();
+
+app.use(express.json());
+app.use(express.urlencoded());
+app.use(
+  cors({
+    origin: FRONTEND_URL,
+    credentials: true,
+  }),
+);
+app.use(clerkMiddleware());
 
 app.get(
   "/health",

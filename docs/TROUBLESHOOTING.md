@@ -37,7 +37,7 @@ This document covers common issues you might encounter while developing **rtcame
 | **Server won't start** | Missing `.env` or invalid values | Copy `.env.example` to `.env`. Check required vars (PORT, MONGO_URI). See [`ENV.md`](./ENV.md). |
 | **TypeScript compilation errors** | Type mismatches, missing types | Read error carefully. Install missing `@types/*` if needed. Check `tsconfig.json`. Use `tsx` for dev (transpiles on-the-fly). |
 | **`dotenv` not loading** | `.env` in wrong location | Backend `.env` must be in `backend/` root. Import `dotenv/config` at top of `index.ts`. |
-| **CORS blocked requests** | Missing/incorrect CORS config | Configure `cors()` with `origin: [CLIENT_URL, "http://localhost:5173"]`. See [`MIDDLEWARE.md`](./MIDDLEWARE.md). |
+| **CORS blocked requests** | Missing/incorrect CORS config | Configure `cors()` with `origin: FRONTEND_URL` (or array). See [`MIDDLEWARE.md`](./MIDDLEWARE.md). |
 
 ---
 
@@ -73,7 +73,7 @@ This document covers common issues you might encounter while developing **rtcame
 | **connect_error / Unauthorized** | Token missing/invalid on socket auth | Ensure client sends token in `auth: { token }`. Verify token with Clerk on server (`io.use()`). Check Clerk keys. See [`SOCKETS.md`](./SOCKETS.md), [`AUTH.md`](./AUTH.md). |
 | **Events not received** | Not joined to room or wrong event name | Check room join (`conversation:join`). Verify event names match exactly (case-sensitive). Use acknowledgements to debug. |
 | **Messages sent twice** | Multiple event listeners attached | Remove listeners on cleanup (`socket.off()`/`useEffect` cleanup). Check useEffect deps. |
-| **CORS with Socket.IO** | Socket.IO cors config missing | Configure `new Server(httpServer, { cors: { origin: CLIENT_URL, credentials: true } })`. Match REST CORS. |
+| **CORS with Socket.IO** | Socket.IO cors config missing | Configure `new Server(httpServer, { cors: { origin: FRONTEND_URL, credentials: true } })`. Match REST CORS. |
 | **Rooms not working** | User not participant or wrong room name | Validate participant in DB before `socket.join()`. Use consistent room naming (e.g., `conversation:<id>`). |
 
 ---
@@ -126,7 +126,7 @@ This document covers common issues you might encounter while developing **rtcame
 | **Build fails (frontend)** | Vite/TS errors or missing VITE_* | `yarn build` locally. Add missing env vars in Netlify/Vercel. Check import paths. |
 | **Backend returns 502/503** | App crashed on start or sleeping | Check platform logs (Render/Railway). Ensure `start` script runs `node dist/index.js` and build succeeded. Cold start on free tier is normal. |
 | **Health endpoint 404** | Route not registered or wrong base URL | Hit `https://your-backend-url/health`. Ensure `app.get('/health', ...)` registered before other middleware? Should work. Check logs. |
-| **CORS in production** | CLIENT_URL wrong or trailing slash | Use exact frontend URL (e.g., `https://app.netlify.app` without `/`). Update backend env and redeploy. |
+| **CORS in production** | FRONTEND_URL wrong or trailing slash | Use exact frontend URL (e.g., `https://app.netlify.app` without `/`). Update backend env and redeploy. |
 | **Socket.IO can't connect in prod** | Using `http://` or wrong URL | Use `https://` for backend URL (Render/Railway provide https). Set `VITE_SOCKET_URL=https://...`. |
 | **MongoDB Atlas connection times out** | Network Access not allowing | Add `0.0.0.0/0` to Atlas Network Access (for free tier learning) or platform IPs. Redeploy backend. |
 | **Clerk auth fails in prod** | Using dev keys or wrong origins | Use production Clerk keys. Add prod frontend URL to Clerk allowed origins. |
