@@ -16,11 +16,13 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/mongoose": "^5.11.97",
     "@types/node": "^26.6.5",
+    "prettier": "^3.9.10",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   },
   "scripts": {
     "dev": "tsx watch ./src/index.ts",
+    "format": "prettier --write .",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down"
   }
