@@ -5,7 +5,7 @@ volumes:
 services:
   mongo:
     image: mongo
-    container_name: rtcamern
+    container_name: rtcamern_mongo
     ports:
       - "27017:27017"
     volumes:
