@@ -41,7 +41,9 @@ if (fs.existsSync(publicDir)) {
       next();
       return;
     }
-    res.sendFile(path.join(publicDir, "index.html"), (err) => next(err));
+    res.sendFile(path.join(publicDir, "index.html"), (err) => {
+      if (err) next(err);
+    });
   });
 }
 

@@ -190,7 +190,9 @@ Build scripts are in place.
   "start": "node dist/index.js"
 }
 ```
-`backend/tsconfig.json` outputs to `dist/` (`rootDir: "./src"`, `outDir: "./dist"`). Run `yarn build && yarn start` to verify locally.
+`backend/tsconfig.json` outputs to `dist/` (`rootDir: "./src"`, `outDir: "./dist"`). Run `yarn build && yarn start` to verify the API locally.
+
+> **Note:** static SPA serving resolves `publicDir` to `../public` next to `dist/`. That directory only exists in the Docker image (the frontend build is copied to `/app/public`). Locally `backend/public` does not exist, so `yarn start` serves the API only — run the Vite dev server (`frontend/`) separately for the frontend.
 
 **Frontend:** Vite's `build` script (`tsc -b && vite build`) outputs to `dist/`.
 
