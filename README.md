@@ -4,6 +4,8 @@
 
 A learning-focused, hand-coded real-time chat application built with the MERN stack (MongoDB, Express.js, React, Node.js) and Socket.IO. This project is built from scratch to understand core concepts like authentication, real-time communication, media handling, webhooks, cron jobs, and middleware.
 
+**Live Demo:** [https://rtcamern.onrender.com/](https://rtcamern.onrender.com/)
+
 ![Status](https://img.shields.io/badge/status-in%20progress-yellow)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Tech](https://img.shields.io/badge/tech-MERN%20%2B%20Socket.IO-brightgreen)
@@ -211,7 +213,7 @@ Environment variables are documented in detail in **[docs/ENV.md](./docs/ENV.md)
 ```env
 PORT=3000
 MONGO_URI=mongodb://localhost:27017/rtcamern
-# Clerk, ImageKit, CLIENT_URL, CLERK_WEBHOOK_SECRET etc. (added as implemented)
+# Clerk, ImageKit, FRONTEND_URL, CLERK_WEBHOOK_SECRET etc. (added as implemented)
 ```
 
 **Frontend (`frontend/.env`):**
@@ -329,7 +331,7 @@ Free deployment is fully documented in **[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.
 - **Auth:** [Clerk](https://clerk.com/) (free tier)
 - **Media:** [ImageKit](https://imagekit.io/) (free tier)
 
-Live demo URL will be added here once deployed.
+**Live Demo:** [https://rtcamern.onrender.com/](https://rtcamern.onrender.com/)
 
 ---
 
