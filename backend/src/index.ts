@@ -5,9 +5,10 @@ import fs from "fs";
 import path from "path";
 import { Express, Request, Response } from "express";
 import { clerkMiddleware } from "@clerk/express";
-import { FRONTEND_URL, PORT } from "./constants/env";
+import { FRONTEND_URL, NODE_ENV, PORT } from "./constants/env";
 import { NOT_FOUND, OK } from "./constants/http-status";
 import connectToDb from "./lib/db";
+import job from "./lib/cron";
 
 const app: Express = express();
 // Frontend build is copied to /app/public at image build time. Resolve it
@@ -57,6 +58,7 @@ app.use(function (_req, res: Response<{ message: string; ok: boolean }>): void {
     app.listen(PORT, function () {
       console.log(`Server is listening on port: ${PORT}`);
     });
+    if (NODE_ENV === "production") job.start();
   } catch (error) {
     console.error(`Error in starting the server: ${error}`);
     process.exit(1);
