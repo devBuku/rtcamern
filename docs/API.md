@@ -44,6 +44,7 @@ Some routes (like health check and webhooks) are public and do not require auth.
   "message": "I am healthy"
 }
 ```
+(Status code uses `OK` from `backend/src/constants/http-status.ts`.)
 
 ---
 

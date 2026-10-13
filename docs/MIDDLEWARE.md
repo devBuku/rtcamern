@@ -165,7 +165,7 @@ These make error handling explicit and self-documenting.
 
 ```ts
 const errorMiddleware = (err, req, res, next) => {
-  const statusCode = err.statusCode || 500;
+  const statusCode = err.statusCode || 500; // or import INTERNAL_SERVER_ERROR constant
   const message = err.message || "Internal Server Error";
   res.status(statusCode).json({ success: false, message, ...(process.env.NODE_ENV==='development' && { stack: err.stack }) });
 };

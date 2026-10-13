@@ -125,7 +125,7 @@ This document covers common issues you might encounter while developing **rtcame
 | **Build fails (backend)** | TypeScript errors or missing deps | Run `yarn build` locally first. Fix errors. Ensure all deps in `dependencies` (not devDeps if needed at runtime). Check `tsconfig.json` outDir. |
 | **Build fails (frontend)** | Vite/TS errors or missing VITE_* | `yarn build` locally. Add missing env vars in Netlify/Vercel. Check import paths. |
 | **Backend returns 502/503** | App crashed on start or sleeping | Check platform logs (Render/Railway). Ensure `start` script runs `node dist/index.js` and build succeeded. Cold start on free tier is normal. |
-| **Health endpoint 404** | Route not registered or wrong base URL | Hit `https://your-backend-url/health`. Ensure `app.get('/health', ...)` registered before other middleware? Should work. Check logs. |
+| **Health endpoint 404** | Route not registered or wrong base URL | Hit `https://your-backend-url/health`. Ensure `app.get('/health', ...)` registered before other middleware? Should work. Check logs. (Status uses `NOT_FOUND`/`OK` from HTTP status constants.) |
 | **CORS in production** | FRONTEND_URL wrong or trailing slash | Use exact frontend URL (e.g., `https://app.netlify.app` without `/`). Update backend env and redeploy. |
 | **Socket.IO can't connect in prod** | Using `http://` or wrong URL | Use `https://` for backend URL (Render/Railway provide https). Set `VITE_SOCKET_URL=https://...`. |
 | **MongoDB Atlas connection times out** | Network Access not allowing | Add `0.0.0.0/0` to Atlas Network Access (for free tier learning) or platform IPs. Redeploy backend. |
