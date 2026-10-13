@@ -43,9 +43,7 @@ RUN yarn workspaces focus --production && yarn cache clean
 COPY --from=backend-build  /app/dist          ./dist
 COPY --from=frontend-build /app/frontend/dist ./public
 
-EXPOSE 3001
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3001)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
 
 USER node
 
