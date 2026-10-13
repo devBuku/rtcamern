@@ -1,6 +1,8 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import fs from "fs";
+import path from "path";
 import { Express, Request, Response } from "express";
 import { clerkMiddleware } from "@clerk/express";
 import { FRONTEND_URL, PORT } from "./constants/env";
@@ -8,6 +10,10 @@ import { NOT_FOUND, OK } from "./constants/http-status";
 import connectToDb from "./lib/db";
 
 const app: Express = express();
+// Frontend build is copied to /app/public at image build time. Resolve it
+// relative to the compiled file (dist/index.js -> ../public) so serving does
+// not depend on the process working directory.
+const publicDir = path.join(__dirname, "..", "public");
 
 app.use(express.json());
 app.use(express.urlencoded());
@@ -25,6 +31,19 @@ app.get(
     res.status(OK).json({ ok: true });
   },
 );
+
+if (fs.existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+  app.get("/{*any}", function (req, res, next) {
+    // API/unknown paths fall through to the JSON 404 handler below instead of
+    // being answered with the SPA shell.
+    if (req.path.startsWith("/api")) {
+      next();
+      return;
+    }
+    res.sendFile(path.join(publicDir, "index.html"), (err) => next(err));
+  });
+}
 
 app.use(function (_req, res: Response<{ message: string; ok: boolean }>): void {
   res.status(NOT_FOUND).json({ message: "Route not found", ok: false });

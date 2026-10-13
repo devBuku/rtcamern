@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Yarn local install state (generated, machine-specific)
+**/.yarn/install-state.gz
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

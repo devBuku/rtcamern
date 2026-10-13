@@ -22,6 +22,8 @@
   },
   "scripts": {
     "dev": "tsx watch ./src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
     "format": "prettier --write .",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down"

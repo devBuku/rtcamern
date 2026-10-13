@@ -19,6 +19,7 @@ A learning-focused, hand-coded real-time chat application built with the MERN st
 - [Folder Structure](#folder-structure)
 - [Prerequisites](#prerequisites)
 - [Getting Started (Local Setup)](#getting-started-local-setup)
+- [Docker (Single Container)](#docker-single-container)
 - [Environment Variables](#environment-variables)
 - [Core Concepts](#core-concepts)
 - [Documentation](#documentation)
@@ -130,7 +131,7 @@ rtcamern/
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) (LTS v20+)
-- [Yarn](https://yarnpkg.com/) (v4+ Berry)
+- [Yarn](https://yarnpkg.com/) (v4 Berry, pinned via `packageManager` in both packages)
 - [MongoDB](https://www.mongodb.com/) (local or Atlas free tier)
 - [Git](https://git-scm.com/)
 - [Clerk](https://clerk.com/) account (free)
@@ -165,6 +166,40 @@ rtcamern/
    App runs at `http://localhost:5173`.
 
 For detailed step-by-step instructions, see **[docs/SETUP.md](./docs/SETUP.md)**.
+
+---
+
+## Docker (Single Container)
+
+The app ships as a **single Docker image**: the Express API serves the built Vite frontend (monolith). MongoDB is external ([MongoDB Atlas](https://www.mongodb.com/atlas) free tier) — no database runs inside the container.
+
+Build (frontend `VITE_*` values are inlined at build time, so pass them as `--build-arg`):
+
+```bash
+docker build \
+  --build-arg VITE_CLERK_PUBLISHABLE_KEY=pk_live_xxx \
+  -t rtcamern:latest .
+```
+
+Run (point `MONGO_URI` at Atlas):
+
+```bash
+docker run --rm -p 3001:3001 \
+  -e MONGO_URI="mongodb+srv://<user>:<pass>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority" \
+  -e DB_NAME=rtcamern \
+  -e CLERK_PUBLISHABLE_KEY=pk_live_xxx \
+  -e CLERK_SECRET_KEY=sk_live_xxx \
+  -e FRONTEND_URL=http://localhost:3001 \
+  rtcamern:latest
+```
+
+Then open `http://localhost:3001`.
+
+Notes:
+- `NODE_ENV=production` is set in the image, so the backend reads `MONGO_URI` (not `MONGO_URI_DOCKER`).
+- The image runs as the non-root `node` user and exposes port `3001`.
+- Build layout: frontend `dist` → `/app/public`, compiled backend JS → `/app/dist`.
+- For local development, `backend/docker-compose.yaml` still provides a standalone MongoDB container (`yarn docker:up` in `backend/`).
 
 ---
 
@@ -303,8 +338,8 @@ Live demo URL will be added here once deployed.
 ### Backend (`backend/package.json`)
 ```bash
 yarn dev      # Start dev server with tsx watch
-yarn build    # Build with tsc (to be added)
-yarn start    # Run built app (to be added)
+yarn build    # Compile TypeScript with tsc (outputs to dist/)
+yarn start    # Run the compiled app (node dist/index.js)
 ```
 
 ### Frontend (`frontend/package.json`)

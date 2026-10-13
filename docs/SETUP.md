@@ -11,7 +11,7 @@ Before getting started, ensure you have the following installed and configured:
 | Tool | Version (Recommended) | Purpose | Notes |
 |---|---|---|---|
 | **[Node.js](https://nodejs.org/)** | LTS (v20+ recommended) | Runtime for both frontend and backend | Check with `node -v` |
-| **[Yarn](https://yarnpkg.com/)** | v4+ (Berry) | Package manager | The backend uses Yarn Berry (`yarn@4.18.1` per package.json). Frontend also uses yarn.lock. |
+| **[Yarn](https://yarnpkg.com/)** | v4+ (Berry) | Package manager | Both packages pin `yarn@4.18.1` via the `packageManager` field (run `corepack enable` once). |
 | **[MongoDB](https://www.mongodb.com/)** | 6.x+ or MongoDB Atlas | Database | You can use a local MongoDB instance (`mongodb://localhost:27017`) or [MongoDB Atlas](https://www.mongodb.com/atlas) (free tier). |
 | **[Git](https://git-scm.com/)** | Latest | Version control | To clone the repository. |
 | **[Clerk Account](https://clerk.com/)** | Free | Authentication | Required later for auth. Sign up for free and create an app. |
@@ -39,7 +39,7 @@ cd backend
 yarn install
 ```
 
-The backend uses Yarn Berry (Pnp mode enabled via `.yarnrc.yml`). This is intentional and matches the current setup.
+Both packages use Yarn Berry (`yarn@4.18.1`) with `nodeLinker: node-modules` (see `.yarnrc.yml`), so dependencies install into a standard `node_modules` folder. Enable Corepack once with `corepack enable` so the pinned Yarn version is used.
 
 ### Step 2b: Configure Environment Variables
 
@@ -103,7 +103,7 @@ You can test the health endpoint:
 
 ```bash
 curl http://localhost:3000/health
-# Returns: {"message": "I am healthy"}
+# Returns: {"ok":true}
 ```
 
 ---
@@ -161,6 +161,27 @@ rtcamern/
 ```
 
 See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for a deeper breakdown of the folder structure and its purpose.
+
+---
+
+## 5b. Running as a Single Docker Container
+
+If you want to run the whole app as one container (Express serving the built frontend, MongoDB in Atlas), build the root `Dockerfile`:
+
+```bash
+# from repo root
+docker build --build-arg VITE_CLERK_PUBLISHABLE_KEY=pk_xxx -t rtcamern:latest .
+
+docker run --rm -p 3001:3001 \
+  -e MONGO_URI="mongodb+srv://<user>:<pass>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority" \
+  -e DB_NAME=rtcamern \
+  -e CLERK_PUBLISHABLE_KEY=pk_xxx \
+  -e CLERK_SECRET_KEY=sk_xxx \
+  -e FRONTEND_URL=http://localhost:3001 \
+  rtcamern:latest
+```
+
+Then open `http://localhost:3001`. Because `NODE_ENV=production` is set in the image, the backend reads `MONGO_URI` (not `MONGO_URI_DOCKER`). Frontend `VITE_*` values are inlined at build time, so pass them as `--build-arg`.
 
 ---
 

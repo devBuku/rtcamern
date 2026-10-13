@@ -1,0 +1,11 @@
+# Keep the build context lean and avoid baking secrets/artifacts into images.
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/.yarn/install-state.gz
+.git
+docs
+**/*.md
+.DS_Store
+npm-debug.log*

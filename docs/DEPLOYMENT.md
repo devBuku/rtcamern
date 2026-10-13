@@ -66,10 +66,8 @@ You can choose either Render or Railway. Both support Node.js apps and free tier
    - **Name:** `rtcamern-backend`
    - **Root Directory:** `backend` (if monorepo)
    - **Runtime:** Node
-   - **Build Command:** `yarn install && yarn build` (if you add build script later) or just `yarn install`. For tsx dev mode in prod, better to build with `tsc`. For now, if running with tsx, use `yarn install`.
-   - **Start Command:** `node dist/index.js` after build, or `yarn start`. If staying with tsx in prod (less common), `yarn tsx src/index.ts` but tsc build is cleaner.
-   
-   *Note:* Current `package.json` has only `dev` script. When ready to deploy, add `build` and `start` scripts.
+   - **Build Command:** `yarn install && yarn build`
+   - **Start Command:** `yarn start`
 
 5. Add **Environment Variables** (from [`ENV.md`](./ENV.md)):
    - `PORT` (Render may set automatically; can use `process.env.PORT`)
@@ -180,18 +178,11 @@ Set `VITE_SOCKET_URL` to backend public URL.
 
 ---
 
-## 6. Build Scripts (Prepare Before Deploy)
+## 6. Build Scripts
 
-Current backend `package.json`:
-```json
-"scripts": {
-  "dev": "tsx watch ./src/index.ts"
-}
-```
+Build scripts are in place.
 
-For production deployment, better to build with TypeScript:
-
-Add:
+**Backend** (`backend/package.json`):
 ```json
 "scripts": {
   "dev": "tsx watch ./src/index.ts",
@@ -199,10 +190,29 @@ Add:
   "start": "node dist/index.js"
 }
 ```
+`backend/tsconfig.json` outputs to `dist/` (`rootDir: "./src"`, `outDir: "./dist"`). Run `yarn build && yarn start` to verify locally.
 
-Also ensure `tsconfig.json` outputs to `dist/` (common setup). Current has `outDir`? Check `backend/tsconfig.json`. If not, add `outDir: "./dist"` and `rootDir: "./src"`.
+**Frontend:** Vite's `build` script (`tsc -b && vite build`) outputs to `dist/`.
 
-**Frontend:** Vite already has `build` script (`tsc -b && vite build`) which outputs to `dist/`.
+### Single-Container (Monolith) Build
+
+The repo root `Dockerfile` builds the frontend, compiles the backend, and serves both from one Express process (`/app/dist` for the API, `/app/public` for the static frontend). MongoDB is external (Atlas); no database runs in the image.
+
+```bash
+# Build (VITE_* are inlined at build time)
+docker build --build-arg VITE_CLERK_PUBLISHABLE_KEY=pk_live_xxx -t rtcamern:latest .
+
+# Run (NODE_ENV=production is set in the image, so MONGO_URI is required)
+docker run --rm -p 3001:3001 \
+  -e MONGO_URI="mongodb+srv://<user>:<pass>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority" \
+  -e DB_NAME=rtcamern \
+  -e CLERK_PUBLISHABLE_KEY=pk_live_xxx \
+  -e CLERK_SECRET_KEY=sk_live_xxx \
+  -e FRONTEND_URL=http://localhost:3001 \
+  rtcamern:latest
+```
+
+See the [README](../README.md#docker-single-container) for details.
 
 ---
 
@@ -229,7 +239,7 @@ Also ensure `tsconfig.json` outputs to `dist/` (common setup). Current has `outD
 - [ ] Web service created (Render/Railway) with root `backend`
 - [ ] All env vars set
 - [ ] Build succeeds
-- [ ] Health endpoint accessible: `https://backend-url/health` returns `{"message":"I am healthy"}`
+- [ ] Health endpoint accessible: `https://backend-url/health` returns `{"ok":true}`
 
 ### Deploy Frontend
 - [ ] Site created (Netlify/Vercel) with root `frontend`
