@@ -1,158 +1,82 @@
 # AGENTS.md
 
-This document serves as a guide for AI agents (like this one) assisting with the **rtcamern** (Real-Time Chat Application using MERN Stack) project. Since this is a learning project that you'll be coding by hand, this file outlines the agent's role, responsibilities, and workflows.
+This file gives high-signal guidance for working in the `rtcamern` repo. Preserve only what helps avoid mistakes.
 
 ---
 
-## 1. Project Overview
+## Project Shape
 
-- **Name:** rtcamern
-- **Description:** Real-Time Chat Application built with MERN stack + Socket.IO
-- **Goal:** A learning-focused, resume-ready, production-style project
-- **Approach:** Hand-coded by the user. Agents should not scaffold or rewrite large portions of the codebase unless explicitly requested.
-
----
-
-## 2. Agent Role
-
-The agent's primary role is to act as a **Documentation + UI Polish Assistant**.
-
-### Core Responsibilities
-
-- **UI Polishes (Later Stages):** Suggest small, meaningful improvements to layout, spacing, typography, colors, themes, responsiveness, accessibility, and UX to make the project stand out.
-- **Documentation Maintenance:** Keep all documentation accurate, up-to-date, and in sync with the code you write.
-- **Learning-Focused Guidance:** Explain concepts in plain language, focusing on the "why" behind implementations.
-- **Non-Intrusive:** Avoid unsolicited full-file rewrites. Suggestions should be concrete, actionable, and preserve your hand-written learning approach.
-
-### What Agents Should NOT Do
-
-- Scaffold the entire project from scratch (you'll be coding by hand).
-- Make large, sweeping changes without your explicit approval.
-- Delete or overwrite unfamiliar files without investigation.
-- Assume implementation details—only document what actually exists in the codebase.
-- Over-comment trivial code. Focus on explaining logic, decisions, and concepts.
+- **Type:** Monolith (backend serves frontend in production). 
+- **Stacks:** Backend TypeScript (Express + Mongoose + Socket.IO + Clerk), Frontend TypeScript (React + Vite + Hero UI + Clerk). 
+- **Deployment:** Single Docker image; backend copies built frontend to `/app/public` and serves it with `express.static`. MongoDB is external (MongoDB Atlas). Render is used (Dockerfile has no `EXPOSE`/`HEALTHCHECK`).
 
 ---
 
-## 3. Documentation Strategy
+## Entrypoints & Key Paths
 
-All documentation should be maintained to help both you (future-you) and others understand the architecture, design decisions, and setup process.
-
-### A. Inline Code Documentation
-
-| Location | What to Document | Style |
-|---|---|---|
-| **Top of each file** | Purpose, functionality, and how it fits into the architecture | Short 1–3 line block comment |
-| **Functions/Handlers** | What it does, inputs, outputs, and important side effects | Concise JSDoc-style (optional params/returns) |
-| **Complex Logic (Sockets, Middleware, Uploads)** | The "why" behind the implementation (rooms, auth, presence, Multer, validation, etc.) | Line-level explanatory comments |
-| **Config Files** | Explain each environment variable/config value and when to change it | Inline comments |
-
-**Guideline:** Explain reasoning without over-commenting. Prioritize clarity for learning purposes.
-
-### B. Project-Wide Documentation (`/docs/` Folder)
-
-Create and maintain a `docs/` directory with the following files as the project progresses:
-
-| File | Purpose | Notes |
-|---|---|---|
-| **`docs/ARCHITECTURE.md`** | High-level system architecture | Include **Mermaid diagrams** (data flow, DB relations, message flow, client-server, realtime flow). |
-| **`docs/SETUP.md`** | Step-by-step local setup guide | Cover prerequisites, cloning, installation, `.env` setup, running client+server, common issues. |
-| **`docs/ENV.md`** | Environment variables reference | Explain every variable (Clerk, MongoDB, ImageKit, ports, client URLs), where to get them, and safe defaults. |
-| **`docs/DATABASE.md`** | Database schema and design | Document User, Conversation, Message models, fields, relationships, indexes, and reasoning behind design. |
-| **`docs/AUTH.md`** | Authentication flow | Cover Clerk (frontend + backend), token verification, user sync, protected routes, and webhooks. |
-| **`docs/API.md`** | REST API reference | List all endpoints with methods, auth requirements, request/response examples, and purpose. |
-| **`docs/SOCKETS.md`** | Socket.IO events and realtime flow | Document event names, payloads, rooms, emits/broadcasts, presence, typing, read receipts. Explain the custom WebSocket server. |
-| **`docs/MEDIA.md`** | Media handling | Explain **file uploads from scratch** (Multer: storage vs memory, validation, limits, MIME checks) and **ImageKit** (uploads, URLs, transformations). |
-| **`docs/MIDDLEWARE.md`** | Middleware deep-dive | Document auth, error, and upload middleware with execution order and detailed explanations. |
-| **`docs/WEBHOOKS_CRON.md`** | Webhooks & Cron Jobs | Explain webhooks (use cases, flow, security), cron jobs (schedules, demos, testing locally), and how they integrate. |
-| **`docs/UI.md`** | UI/UX, theming, and personalization | Cover Dark/Light mode, multiple themes, wallpapers, keyboard sound effects, design tokens, spacing, accessibility, and responsiveness strategy. |
-| **`docs/DEPLOYMENT.md`** | Free deployment guide | Cover Netlify/Vercel (frontend), Railway/Render (backend), MongoDB Atlas, env config, CORS, Socket.IO client URL, live testing, troubleshooting. |
-| **`docs/TROUBLESHOOTING.md`** | Common issues and fixes | Address CORS, Socket.IO, ports, uploads, Clerk, ImageKit, and other dev issues. |
-
-### C. Comprehensive README.md
-
-The `README.md` should be written for first-time visitors and serve as the entry point, linking to deep dives in `/docs/`. It should include the following sections:
-
-| Section | Details |
-|---|---|
-| **Project Title + Tagline** | What it is and its learning focus |
-| **Live Demo** | Placeholder until deployed |
-| **Features** | Map to all highlights (auth, realtime, presence, media, themes, wallpapers, sounds, uploads from scratch, ImageKit, webhooks, cron, middleware, custom WS server, deploy, etc.) |
-| **Tech Stack** | List technologies with short rationale for each |
-| **Table of Contents** | Easy navigation |
-| **Architecture Overview** | High-level summary with a link to `docs/ARCHITECTURE.md` |
-| **Folder Structure** | Explain what lives where and why |
-| **Prerequisites** | Node.js, MongoDB Atlas, Clerk account, ImageKit account (all free) |
-| **Getting Started (Local Setup)** | Clean, copy-pasteable steps, with link to `docs/SETUP.md` for deeper details |
-| **Environment Variables** | `.env.example` reference with explanation, link to `docs/ENV.md` |
-| **Core Concepts** | Brief explanations + links (Auth, Realtime, Media, Middleware, Webhooks, Cron) |
-| **API Reference** | Summary + link to `docs/API.md` |
-| **Socket.IO Events** | Summary + link to `docs/SOCKETS.md` |
-| **Database Models** | Overview + link to `docs/DATABASE.md` |
-| **Theming, Wallpapers & Sounds** | Overview + link to `docs/UI.md` |
-| **Deployment** | Free deployment summary + link to `docs/DEPLOYMENT.md` |
-| **Scripts** | Client/server run commands |
-| **Project Roadmap/Phases** | Learning-oriented breakdown |
-| **Learning Takeaways** | What someone learns by building this project |
-| **Troubleshooting** | Quick links + link to `docs/TROUBLESHOOTING.md` |
-| **License** | MIT (recommended) |
-
-**Markdown Guidelines:** Use GitHub-Flavored Markdown, clear tables, code blocks, callouts, and **Mermaid diagrams** wherever they help explain flows.
+- **Backend entry:** `backend/src/index.ts` — sets CORS (uses `FRONTEND_URL`), `clerkMiddleware`, serves `/health`, in prod serves SPA from `publicDir = ../public` (resolves relative to `dist/index.js`), falls through API paths to 404, connects DB, starts server, starts cron in production.
+- **Backend build:** `backend/tsconfig.json` -> `./dist`. `yarn build` runs `tsc`, `yarn start` runs `node dist/index.js`.
+- **Frontend entry:** `frontend/src/main.tsx` wrapped with `ClerkProvider`, `frontend/src/App.tsx` uses Clerk components.
+- **Frontend build:** `frontend/vite.config.ts` (Vite + React Compiler via Babel). `yarn build` does `tsc -b && vite build`, outputs to `frontend/dist`.
+- **Constants:** `backend/src/constants/env.ts` (NODE_ENV validation, MONGO_URI selection, `FRONTEND_URL`), `backend/src/constants/http-status.ts` (use these for status codes).
+- **DB:** `backend/src/lib/db.ts` uses `mongoose.connect(MONGO_URI, { dbName: DB_NAME })` (DB name separate from URI).
+- **Cron:** `backend/src/lib/cron.ts` pings `FRONTEND_URL/health` every 14 min (`*/14 * * * *`) in production via `NODE_ENV` check (started in `index.ts`).
+- **Models:** `backend/src/models/user.model.ts`, `backend/src/models/message.model.ts` (TS interfaces + schemas).
 
 ---
 
-## 4. UI Polish Guidelines
+## Commands
 
-When reviewing hand-written UI code, suggest targeted improvements grouped by impact. Focus on subtle, meaningful polishes rather than redesigns.
+### Backend (`backend/`)
+- `yarn dev` – run with `tsx watch ./src/index.ts`
+- `yarn build` – `tsc` (outputs to `dist/`)
+- `yarn start` – `node dist/index.js`
+- `yarn format` – Prettier
+- `yarn docker:up` / `yarn docker:down` – Docker Compose (standalone MongoDB for local dev)
 
-| Area | Suggested Polishes | Goal |
-|---|---|---|
-| **Layout & Spacing** | Consistent spacing scale, padding/margins, flex/grid alignment, whitespace | Cleaner, more professional look |
-| **Typography** | Font sizes, weights, line-height, letter-spacing, chat readability | Improved readability |
-| **Colors & Themes** | Hero UI theme tokens, dark/light consistency, semantic colors (success/error/info), contrast/accessibility | Polished & accessible |
-| **Chat UI** | Message bubbles, alignment, timestamps, avatars, read receipts, typing indicator, last message preview, scroll behavior | Standout real-time chat feel |
-| **Media UI** | Image/video previews, thumbnails, loading states, graceful fallbacks | Smooth media sharing UX |
-| **States** | Loading skeletons, empty states, error states, disabled states | Production-grade feel |
-| **Microinteractions** | Hover, active, transitions, focus rings, send button feedback | Polished without being flashy |
-| **Responsiveness** | Mobile-first, sidebar/chat layout on small screens, safe areas | Works across devices |
-| **Themes/Wallpapers/Sounds UX** | Clear toggles, previews, persistent preferences, respect user choices | Smooth personalization |
-| **Accessibility (a11y)** | Focus management, aria labels, color contrast, keyboard navigation | Inclusive, solid UX |
+### Frontend (`frontend/`)
+- `yarn dev` – Vite dev server
+- `yarn build` – `tsc -b && vite build`
+- `yarn lint` – ESLint
+- `yarn format` – Prettier
+- `yarn preview` – preview build
 
-**Approach:** Provide specific, actionable suggestions (e.g., Tailwind/Hero UI class names, small before/after snippets, or explanations of changes). Let the user implement them to preserve the learning experience.
-
----
-
-## 5. Workflow & Communication
-
-1. **Share at Stages:** As you progress (e.g., Auth, Sockets, Media, first UI pass), share key files/folders for review.
-2. **Polish Pass:** For each stage, suggest UI improvements and identify any missing or unclear documentation for the files shared.
-3. **Docs Sync:** When files are updated, suggest updates to inline comments and relevant `.md` files in `/docs/` to keep everything accurate.
-4. **No Unsolicited Rewrites:** Suggestions should explain the "why" and be optional to implement.
-5. **Ask for Clarification:** If implementation details are unclear, ask rather than assume.
-6. **Keep README as Source of Truth:** Expand it progressively as features land, linking to deep dives in `/docs/`.
+Both use Yarn 4 (Berry) with `nodeLinker: node-modules` and `packageManager` pinned. Install with `yarn install --immutable` (Docker does this).
 
 ---
 
-## 6. Key Learning Concepts to Document
+## Environment
 
-Ensure these are well-explained throughout the codebase and docs:
+Backend `.env.example` defines:
+- `NODE_ENV` (development|production|test) – validated; in production uses `MONGO_URI`, in dev/test prefers `MONGO_URI_DOCKER`, falls back to `MONGO_URI` (trimmed). 
+- `PORT` (default 3000 in code; Docker/runtime may set 3001)
+- `MONGO_URI`, `MONGO_URI_DOCKER`, `DB_NAME` (default `rtcamern`) – DB name passed via Mongoose `dbName`.
+- `FRONTEND_URL` – CORS origin and used by cron health ping (default `http://localhost:5173`).
+- Clerk/ImageKit keys as defined.
 
-- **Custom WebSocket Server:** Socket.IO setup from scratch (no Firebase/Supabase), rooms, events, presence.
-- **Authentication:** Clerk integration (frontend + backend), JWT verification, protected routes, user sync.
-- **File Uploads from Scratch:** Multer configuration, memory vs disk storage, validation, size limits, MIME type checks, error handling.
-- **Media with ImageKit:** Uploading, obtaining URLs, applying transformations, storing in database.
-- **Middleware:** Auth middleware, error middleware, upload middleware, with order of execution explained.
-- **Webhooks:** What they are, use cases, flow, security considerations, and Clerk webhook integration.
-- **Cron Jobs:** Purpose, scheduling, practical demos (e.g., cleanup of orphaned temp files), and how to test.
-- **Realtime Features:** Messaging, typing indicators, online presence, read receipts.
-- **Theming & Personalization:** Dark/Light mode, multiple themes, wallpapers, keyboard sound effects.
+Frontend uses `VITE_*` vars (e.g. `VITE_CLERK_PUBLISHABLE_KEY`). In Docker build, frontend build takes `VITE_CLERK_PUBLISHABLE_KEY` as build arg; `VITE_API_URL` is empty so client calls same origin in monolith.
 
 ---
 
-## 7. Final Notes
+## Gotchas / Constraints
 
-- This is a learning project—prioritize understanding over shortcuts.
-- Documentation should be thorough enough that someone new to these concepts can follow along and understand the architecture.
-- UI polishes should enhance, not overpower. Keep it clean, professional, and accessible.
-- All changes should respect the existing codebase structure, naming conventions, and style.
-- When in doubt, ask for clarification before making assumptions!
+- **Monolith serving:** In production, API paths starting with `/api` are not served the SPA (`next()`); other non-API paths fall back to `index.html`. Dev runs separate servers.
+- **Cron only in production:** `job.start()` runs only if `NODE_ENV === "production"`. Cron pings `FRONTEND_URL/health` (so `FRONTEND_URL` must be reachable in prod).
+- **Mongo selection:** Do not concatenate DB name into URI; always pass `{ dbName: DB_NAME }`. Trimming applied.
+- **Render deployment:** Dockerfile removes `EXPOSE` and `HEALTHCHECK` (Render manages routing/health). Port may be provided via `PORT` env.
+- **Docker monolith:** Frontend built in first stage, backend TS compiled in second, runtime copies `dist/` and `public/`. Runs as non-root `node`. Uses `yarn workspaces focus --production`.
+- **TypeScript:** Backend uses CommonJS-style output via `tsc` (`module: nodenext`, `verbatimModuleSyntax: false`). Use `tsx` for local dev.
+- **HTTP status:** Import from `@/constants/http-status` (or `./constants/http-status`) — avoid hardcoded numbers (e.g. `OK`, `NOT_FOUND`).
+- **Secrets:** Never commit `.env` (it may exist locally). Only `.env.example` is committed.
+
+---
+
+## Conventions & Agent Behavior
+
+- **Non-intrusive:** Don't scaffold large portions; preserve hand-written learning approach.
+- **Verify before changing:** Read executable sources (scripts/config) over docs if conflict. Investigate unfamiliar files before overwriting.
+- **Docs sync:** When modifying behavior (env, endpoints, sockets, middleware, cron), update relevant `docs/*.md` and keep `README.md` as entry point.
+- **Minimal edits:** Prefer `edit` for targeted changes, `write` only for new files or full replacements. Don't chain noisy shell separators.
+- **Commit discipline:** Follow existing commit style from history (conventional-like, concise). 
+- **Read full files when needed:** Diffs insufficient — read full affected files for context.
+- **Simple & specific:** Only keep repo-specific, high-signal guidance. If obvious from code/config, omit.
