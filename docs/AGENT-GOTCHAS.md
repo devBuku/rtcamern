@@ -50,7 +50,7 @@ Non-obvious constraints and operational gotchas for working in this repo.
 
 ## HTTP Status Codes
 
-- **Always import from `@/constants/http-status`** (or `./constants/http-status`).
+- **Always import status codes from `./constants/http-status`** (relative path; there is no `@/` alias configured in `backend/tsconfig.json`).
 - Never hardcode status numbers (e.g. `200`, `404`).
 - Available constants: `OK`, `CREATED`, `ACCEPTED`, `NO_CONTENT`, `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `UNPROCESSABLE_ENTITY`, `TOO_MANY_REQUESTS`, `INTERNAL_SERVER_ERROR`, `NOT_IMPLEMENTED`, `BAD_GATEWAY`, `SERVICE_UNAVAILABLE`.
 

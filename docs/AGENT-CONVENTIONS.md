@@ -12,8 +12,6 @@ How to work in this repo. These conventions preserve the hand-coded learning app
 - **Read full files when needed:** Diffs are insufficient — read full affected files for context.
 - **Simple & specific:** Only keep repo-specific, high-signal guidance. If obvious from code/config, omit.
 
-See [Editing Discipline](#editing-discipline) for the practical application of these principles.
-
 ---
 
 ## Documentation Sync

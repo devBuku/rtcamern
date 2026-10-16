@@ -70,9 +70,11 @@ docker run --rm -p 3001:3001 \
 ## Verification Steps
 
 After making changes:
-1. **Backend:** `yarn build` must pass (type-check), `yarn lint` should pass
+1. **Backend:** `yarn build` must pass (type-check)
 2. **Frontend:** `yarn build` must pass (type-check + Vite build)
 3. **Frontend lint:** `yarn lint` should pass
+
+> **Known issue:** `yarn lint` in `backend/` currently crashes with `typescript-eslint does not support TS 7.0` because the backend pins `typescript@^7.0.2`. `yarn build` (`tsc`) is the reliable backend check until the TypeScript / `typescript-eslint` versions are reconciled.
 
 ---
 
