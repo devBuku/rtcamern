@@ -10,6 +10,7 @@ import { NOT_FOUND, OK } from "./constants/http-status";
 import connectToDb from "./lib/db";
 import job from "./lib/cron";
 import clerkWebhook from "./webhooks/clerk.webhook";
+import authRouter from "./routes/auth.route";
 
 const app: Express = express();
 // Frontend build is copied to /app/public at image build time. Resolve it
@@ -40,6 +41,8 @@ app.get(
     res.status(OK).json({ ok: true });
   },
 );
+
+app.use("/api/auth", authRouter);
 
 if (fs.existsSync(publicDir)) {
   app.use(express.static(publicDir));
