@@ -9,12 +9,20 @@ import { FRONTEND_URL, NODE_ENV, PORT } from "./constants/env";
 import { NOT_FOUND, OK } from "./constants/http-status";
 import connectToDb from "./lib/db";
 import job from "./lib/cron";
+import clerkWebhook from "./webhooks/clerk.webhook";
 
 const app: Express = express();
 // Frontend build is copied to /app/public at image build time. Resolve it
 // relative to the compiled file (dist/index.js -> ../public) so serving does
 // not depend on the process working directory.
 const publicDir = path.join(__dirname, "..", "public");
+
+// it's important that we don't parse the webhook event data, it should be in the raw format
+app.use(
+  "/api/webhooks/clerk",
+  express.raw({ type: "application/json" }),
+  clerkWebhook,
+);
 
 app.use(express.json());
 app.use(express.urlencoded());
