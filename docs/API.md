@@ -253,7 +253,7 @@ curl -X POST http://localhost:3000/api/upload \
 
 #### Important Notes
 - **Public**: No auth middleware (Clerk calls this directly).
-- **Signature verification required:** Must verify `svix` signature headers (`svix-id`, `svix-timestamp`, `svix-signature`) using `CLERK_WEBHOOK_SECRET`. Reject invalid requests with 401.
+- **Signature verification required:** Must verify `svix` signature headers (`svix-id`, `svix-timestamp`, `svix-signature`) using `CLERK_WEBHOOK_SIGNING_SECRET`. Reject invalid requests with 401.
 - **Raw body needed:** For signature verification, the route must receive raw body, not JSON-parsed body. This affects middleware order (separate from global `express.json()`).
 - **Idempotent:** Handle retries safely (check if user already exists/updated).
 - **See:** [`AUTH.md`](./AUTH.md) and [`WEBHOOKS_CRON.md`](./WEBHOOKS_CRON.md) for full webhook flow and security.

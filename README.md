@@ -213,7 +213,7 @@ Environment variables are documented in detail in **[docs/ENV.md](./docs/ENV.md)
 ```env
 PORT=3000
 MONGO_URI=mongodb://localhost:27017/rtcamern
-# Clerk, ImageKit, FRONTEND_URL, CLERK_WEBHOOK_SECRET etc. (added as implemented)
+# Clerk, ImageKit, FRONTEND_URL, CLERK_WEBHOOK_SIGNING_SECRET etc. (added as implemented)
 ```
 
 **Frontend (`frontend/.env`):**

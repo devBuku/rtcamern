@@ -73,7 +73,7 @@ You can choose either Render or Railway. Both support Node.js apps and free tier
    - `PORT` (Render may set automatically; can use `process.env.PORT`)
    - `MONGO_URI` – Atlas SRV string
    - `CLERK_SECRET_KEY`
-   - `CLERK_WEBHOOK_SECRET`
+   - `CLERK_WEBHOOK_SIGNING_SECRET`
    - `CLIENT_URL` – Frontend URL (Netlify/Vercel)
    - `IMAGEKIT_PUBLIC_KEY`, `IMAGEKIT_PRIVATE_KEY`, `IMAGEKIT_URL_ENDPOINT`
    - `NODE_ENV=production`
@@ -145,7 +145,7 @@ You can choose either Render or Railway. Both support Node.js apps and free tier
 3. **Webhooks (if implemented):**
    - Add endpoint: `https://your-backend-url/api/webhooks/clerk`
    - Select events: `user.created`, `user.updated`, `user.deleted`
-   - Copy **Signing Secret** → set as `CLERK_WEBHOOK_SECRET` in backend env
+   - Copy **Signing Secret** → set as `CLERK_WEBHOOK_SIGNING_SECRET` in backend env
 4. Use **production** API keys in deployment (not dev/test keys)
 
 ### CORS Configuration (Backend)
@@ -269,7 +269,7 @@ See the [README](../README.md#docker-single-container) for details.
 | **MongoDB connection fails** | IP not allowed or wrong password/URI | Check Network Access in Atlas. URL-encode special chars in password. Verify MONGO_URI. |
 | **502/503 on backend** | App crashed or sleeping (Render free tier) | Check Render/Railway logs. Ensure `start` script works. Fix errors, redeploy. Cold start is normal on free tier. |
 | **Frontend build fails** | Type errors or missing env | Run `yarn build` locally to see errors. Fix TS issues. Ensure all required VITE_* vars set. |
-| **Clerk webhook fails** | Wrong secret or raw body issue | Verify `CLERK_WEBHOOK_SECRET`. Ensure route receives raw body before JSON parse. Check tunnel URL in Clerk. |
+| **Clerk webhook fails** | Wrong secret or raw body issue | Verify `CLERK_WEBHOOK_SIGNING_SECRET`. Ensure route receives raw body before JSON parse. Check tunnel URL in Clerk. |
 | **404 on routes (SPA)** | Frontend routing fallback missing | For Vite/React Router, configure redirects. Netlify: add `_redirects` with `/* /index.html 200`. Vercel: handled automatically. |
 
 ---

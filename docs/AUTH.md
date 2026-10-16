@@ -92,7 +92,7 @@ Webhooks allow Clerk to notify our backend when user lifecycle events occur. Thi
 
 - **Route:** `POST /api/webhooks/clerk` (or `/webhooks/clerk`)
 - **Purpose:** Receives raw JSON payload + `svix-signature` headers from Clerk.
-- **Verification:** Use `svix` library to verify the webhook signature using `CLERK_WEBHOOK_SECRET`. Reject with `401` if invalid.
+- **Verification:** Use `svix` library to verify the webhook signature using `CLERK_WEBHOOK_SIGNING_SECRET`. Reject with `401` if invalid.
 - **Handler:** Parse event type and payload, perform DB operations.
 - **Idempotency consideration:** Webhooks can be retried—design handlers to be safe if called multiple times (check existing records).
 - **Explain in code:** Add clear comments explaining what webhooks are, why we verify signatures, and the event flow.
@@ -123,7 +123,7 @@ Protected routes require a valid Clerk token. Examples of planned protected rout
 - **HTTPS in production:** Webhooks and tokens require secure transport.
 - **Webhook signature verification:** Critical—never trust unverified webhook payloads.
 - **CORS:** Restrict allowed origins to `CLIENT_URL` only (frontend).
-- **Minimal exposure:** Keep secrets (`CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SECRET`) on backend only. Use `VITE_*` only for publishable key.
+- **Minimal exposure:** Keep secrets (`CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`) on backend only. Use `VITE_*` only for publishable key.
 - **Token expiration:** Clerk tokens expire; clients must refresh. This is handled by Clerk SDK.
 - **Socket auth on every connection:** Don't rely on "one-time" auth; verify on connect and consider re-auth if needed.
 
@@ -133,7 +133,7 @@ Protected routes require a valid Clerk token. Examples of planned protected rout
 
 See [`ENV.md`](./ENV.md) for full list. Key auth-related vars:
 
-- **Backend:** `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SECRET`, `CLIENT_URL`
+- **Backend:** `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`, `CLIENT_URL`
 - **Frontend:** `VITE_CLERK_PUBLISHABLE_KEY`, `VITE_API_URL`
 
 ---

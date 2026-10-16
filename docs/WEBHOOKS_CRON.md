@@ -39,7 +39,7 @@ Clerk uses webhooks to notify our app about user lifecycle events. This helps ma
 **Key requirements:**
 - **Public endpoint:** Must be accessible without auth middleware (Clerk calls it directly).
 - **Raw body:** Clerk signs requests using `svix`. Signature verification requires the **raw request body** (unparsed JSON). This means the global `express.json()` middleware must be skipped for this route.
-- **Signature verification:** Use [svix](https://github.com/svix/svix-libs) to verify headers: `svix-id`, `svix-timestamp`, `svix-signature` against `CLERK_WEBHOOK_SECRET`. Reject with `401 Unauthorized` if verification fails.
+- **Signature verification:** Use [svix](https://github.com/svix/svix-libs) to verify headers: `svix-id`, `svix-timestamp`, `svix-signature` against `CLERK_WEBHOOK_SIGNING_SECRET`. Reject with `401 Unauthorized` if verification fails.
 - **Idempotent handling:** Webhooks may be retried by Clerk. Handlers should be safe if the same event is delivered multiple times (e.g., check if user with `clerkId` already exists).
 - **Error handling:** Return appropriate status codes (200 for success, 400/401 for bad/unsigned requests).
 
@@ -49,7 +49,7 @@ Clerk uses webhooks to notify our app about user lifecycle events. This helps ma
 Clerk (user.created)
   ↓ HTTP POST to /api/webhooks/clerk with svix headers + payload
 Express route (receives raw body)
-  ↓ verify signature using CLERK_WEBHOOK_SECRET
+  ↓ verify signature using CLERK_WEBHOOK_SIGNING_SECRET
 If valid: parse event type & data → perform DB operation (create/update/delete User)
   ↓ respond 200 OK
 If invalid: respond 401 Unauthorized
@@ -59,7 +59,7 @@ If invalid: respond 401 Unauthorized
 
 - **Always verify signatures:** Never trust webhook payloads without verification. This prevents spoofing.
 - **Use HTTPS in production:** Clerk requires secure endpoints.
-- **Keep secret safe:** `CLERK_WEBHOOK_SECRET` is backend-only (see [`ENV.md`](./ENV.md)).
+- **Keep secret safe:** `CLERK_WEBHOOK_SIGNING_SECRET` is backend-only (see [`ENV.md`](./ENV.md)).
 - **Log carefully:** Avoid logging full payloads with sensitive data in production.
 - **Separate middleware:** Register webhook route **before** `express.json()` or use `express.raw({ type: 'application/json' })` specifically for this route.
 
@@ -182,7 +182,7 @@ console.log("[CRON] Jobs registered");
 ## 4. Implementation Checklist
 
 ### Webhooks
-- [ ] Add `CLERK_WEBHOOK_SECRET` to `.env.example` and constants
+- [ ] Add `CLERK_WEBHOOK_SIGNING_SECRET` to `.env.example` and constants
 - [ ] Install `svix` package (`yarn add svix`)
 - [ ] Create webhook route/controller (`webhooks/clerk.controller.ts`)
 - [ ] Handle raw body for signature verification (middleware setup)

@@ -110,7 +110,7 @@ This document covers common issues you might encounter while developing **rtcame
 
 | Issue | Cause | Solution |
 |---|---|---|
-| **Webhook returns 401 (signature verification failed)** | Wrong `CLERK_WEBHOOK_SECRET` or missing raw body | Verify signing secret matches Clerk. Ensure route gets raw body before `express.json()`. Use `express.raw({ type: 'application/json' })` for webhook route only. |
+| **Webhook returns 401 (signature verification failed)** | Wrong `CLERK_WEBHOOK_SIGNING_SECRET` or missing raw body | Verify signing secret matches Clerk. Ensure route gets raw body before `express.json()`. Use `express.raw({ type: 'application/json' })` for webhook route only. |
 | **Webhook not receiving events (local)** | Local server not exposed | Use ngrok/localtunnel: `ngrok http 3000`. Update webhook URL in Clerk to public tunnel URL. |
 | **Webhook returns 500** | Handler error (DB, validation) | Check backend logs. Add try-catch in webhook controller. Make handler idempotent. |
 | **Duplicate user creation** | Idempotency not handled | Check if user exists by `clerkId` before creating. Use `findOneAndUpdate` with upsert carefully. |

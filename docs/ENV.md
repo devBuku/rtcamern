@@ -29,7 +29,7 @@ These will be added as authentication, media, webhooks, and deployment features 
 |---|---|---|---|---|
 | **`CLERK_SECRET_KEY`** | `string` | Yes (Auth) | Clerk backend API key for verifying JWTs and calling Clerk APIs. | [Clerk Dashboard → API Keys → Secret Keys](https://dashboard.clerk.com/last-active?path=api-keys) |
 | **`CLERK_PUBLISHABLE_KEY`** | `string` | Yes (Auth) | Publishable key used by the `@clerk/express` middleware to resolve the Clerk frontend API. Required at runtime on the backend (a request fails without it). | Same value as the frontend publishable key. |
-| **`CLERK_WEBHOOK_SECRET`** | `string` | Yes (Webhooks) | Webhook signing secret to verify Clerk webhook events. | [Clerk Dashboard → Webhooks → Signing Secret](https://dashboard.clerk.com/last-active?path=webhooks) |
+| **`CLERK_WEBHOOK_SIGNING_SECRET`** | `string` | Yes (Webhooks) | Webhook signing secret to verify Clerk webhook events. | [Clerk Dashboard → Webhooks → Signing Secret](https://dashboard.clerk.com/last-active?path=webhooks) |
 | **`IMAGEKIT_PUBLIC_KEY`** | `string` | Yes (Media) | ImageKit public key for client-side uploads (if used) and SDK auth. | [ImageKit Dashboard → Developer Options → API Keys](https://imagekit.io/dashboard/developer/api-keys) |
 | **`IMAGEKIT_PRIVATE_KEY`** | `string` | Yes (Media) | ImageKit private key for server-side uploads. **Never expose to frontend.** | Same as above. |
 | **`IMAGEKIT_URL_ENDPOINT`** | `string` | Yes (Media) | ImageKit URL endpoint (e.g., `https://ik.imagekit.io/your_id/`). | [ImageKit Dashboard → URL Endpoints](https://imagekit.io/dashboard/url-endpoints) |
@@ -67,7 +67,7 @@ Keeping `.env.example` up to date is crucial for new contributors and for docume
 ## Security Notes
 
 - **Never commit `.env` files** to version control. They are already gitignored.
-- **Keep secrets safe:** `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SECRET`, and `IMAGEKIT_PRIVATE_KEY` must only be used on the backend.
+- **Keep secrets safe:** `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`, and `IMAGEKIT_PRIVATE_KEY` must only be used on the backend.
 - **Frontend exposure:** Only use `VITE_*` prefixed variables for values that are safe to be bundled into the client.
 - **Rotate keys if exposed:** If any secret is accidentally committed, rotate it immediately via the respective dashboard.
 
