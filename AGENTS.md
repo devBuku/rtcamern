@@ -7,7 +7,7 @@ High-signal guidance for working in the `rtcamern` repo. Preserve only what help
 ## Project Shape
 
 - **Monolith, two independent packages:** `backend/` (Express API) and `frontend/` (React SPA). There is **no root `package.json` or workspace** — run Yarn inside each package.
-- **Actually installed:** backend = Express 5 + Mongoose + Clerk (`@clerk/express`) + `cron`; frontend = React 19 + Vite 8 + Clerk (`@clerk/react`) + React Compiler.
+- **Actually installed:** backend = Express 5 + Mongoose + Clerk (`@clerk/express`) + `cron` (plus `bcryptjs`/`jsonwebtoken`, present but unused — Clerk handles auth); frontend = React 19 + Vite 8 + Clerk (`@clerk/react`) + React Compiler.
 - **Planned in `README.md`/`docs/` but NOT in any `package.json` yet:** Socket.IO, Hero UI, Tailwind, Multer, ImageKit, `node-cron`. Don't import these until they are added.
 - **Deployment:** single Docker image (`node:22`). Frontend build → `/app/public`, backend build → `/app/dist`; the backend serves the SPA in production. MongoDB is external (Atlas). Dockerfile sets `NODE_ENV=production` + `PORT=3001`, runs as non-root `node`, and has no `EXPOSE`/`HEALTHCHECK` (Render manages health).
 
@@ -15,8 +15,9 @@ High-signal guidance for working in the `rtcamern` repo. Preserve only what help
 
 ## Entrypoints & Key Paths
 
-- **Backend entry:** `backend/src/index.ts` — mounts the Clerk webhook with `express.raw()` **before** `express.json()`, then CORS, `clerkMiddleware()`, `/health`, SPA static serving, a JSON 404 fallback, DB connect, listen, and cron start (production only).
+- **Backend entry:** `backend/src/index.ts` — mounts the Clerk webhook with `express.raw()` **before** `express.json()`, then CORS, `clerkMiddleware()`, `/health`, the `/api/auth` router, SPA static serving, a JSON 404 fallback, DB connect, listen, and cron start (production only).
 - **Clerk webhook:** `backend/src/webhooks/clerk.webhook.ts` — verifies the Svix signature, returns 400 on verification failure vs 500 on processing failure, and upserts/deletes `User` by `clerkId`.
+- **Auth layer:** router `backend/src/routes/auth.route.ts` → `authMiddleware` (`backend/src/middlewares/auth.middleware.ts`) → controller `backend/src/controllers/auth.controller.ts`. The middleware resolves `getAuth(req)`, loads `User` by `clerkId`, and sets `req.user` — a **global augmentation typed optional** in `backend/src/types/express.d.ts`, so every handler must guard `req.user`. `GET /api/auth/me` returns `{ success: true, user }` and **404s for Clerk users not yet in MongoDB** (sync is webhook-only; there is no lazy sync). New responses use `{ success: true, ... }` per `docs/API.md`, though `/health` and the 404 handler still use `{ ok: ... }`.
 - **Env/constants:** `backend/src/constants/env.ts` (NODE_ENV validation, `MONGO_URI` selection, optional `CLERK_WEBHOOK_SIGNING_SECRET` — the webhook returns 503 when it is unset), `backend/src/constants/http-status.ts` (**always import status codes from here**; relative path — there is no `@/` alias).
 - **DB:** `backend/src/lib/db.ts` — `mongoose.connect(MONGO_URI, { dbName: DB_NAME })`; never bake the DB name into the URI.
 - **Cron:** `backend/src/lib/cron.ts` — uses the `cron` package (not `node-cron`), pings `FRONTEND_URL/health` every 14 min; started only when `NODE_ENV === "production"`.
