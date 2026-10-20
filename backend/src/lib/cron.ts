@@ -13,7 +13,7 @@ const job = new CronJob("*/14 * * * *", function () {
     else console.log("GET request failed", res.statusCode);
   });
 
-  req.setTimeout(10_000, () => {
+  req.setTimeout(10000, () => {
     req.destroy();
     console.error("Health check request timed out");
   });

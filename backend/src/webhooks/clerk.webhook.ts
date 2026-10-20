@@ -6,6 +6,7 @@ import {
   BAD_REQUEST,
   INTERNAL_SERVER_ERROR,
   OK,
+  SERVICE_UNAVAILABLE,
 } from "../constants/http-status";
 
 const router = express.Router();
@@ -13,7 +14,9 @@ const router = express.Router();
 router.post("/", async function (req, res) {
   const signingSecret = CLERK_WEBHOOK_SIGNING_SECRET;
   if (!signingSecret)
-    return res.status(503).json({ message: "Webhook secret is not provided!" });
+    return res
+      .status(SERVICE_UNAVAILABLE)
+      .json({ message: "Webhook secret is not provided!" });
 
   let evt: Awaited<ReturnType<typeof verifyWebhook>>;
   try {
