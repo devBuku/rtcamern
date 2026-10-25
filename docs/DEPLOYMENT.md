@@ -72,10 +72,10 @@ You can choose either Render or Railway. Both support Node.js apps and free tier
 5. Add **Environment Variables** (from [`ENV.md`](./ENV.md)):
    - `PORT` (Render may set automatically; can use `process.env.PORT`)
    - `MONGO_URI` – Atlas SRV string
+   - `CLERK_PUBLISHABLE_KEY`
    - `CLERK_SECRET_KEY`
    - `CLERK_WEBHOOK_SIGNING_SECRET`
-   - `CLIENT_URL` – Frontend URL (Netlify/Vercel)
-   - `IMAGEKIT_PUBLIC_KEY`, `IMAGEKIT_PRIVATE_KEY`, `IMAGEKIT_URL_ENDPOINT`
+   - `IMAGEKIT_PRIVATE_KEY`, `IMAGEKIT_URL_ENDPOINT`, `IMAGEKIT_ID`
    - `NODE_ENV=production`
    - `FRONTEND_URL` – Your deployed frontend URL (e.g., Netlify/Vercel)
 

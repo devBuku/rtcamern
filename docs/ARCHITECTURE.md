@@ -116,7 +116,7 @@ See [`AUTH.md`](./AUTH.md) for a detailed breakdown (including webhooks).
 3. Multer middleware (custom implementation from scratch) validates file type, size, and handles storage.
 4. Backend uploads the validated file to **ImageKit** for hosting and transformations.
 5. ImageKit returns a URL (and optional transformation URLs) along with metadata.
-6. The media reference is stored in the `Message.media` array in MongoDB and sent alongside the message.
+6. The media URL is stored on `Message.image` or `Message.video` in MongoDB and returned with the message.
 
 See [`MEDIA.md`](./MEDIA.md) for the full explanation of "file uploads from scratch" and ImageKit integration.
 

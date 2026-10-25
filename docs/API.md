@@ -41,18 +41,18 @@ Some routes (like health check and webhooks) are public and do not require auth.
 
 ```json
 {
-  "message": "I am healthy"
+  "ok": true
 }
 ```
 (Status code uses `OK` from `backend/src/constants/http-status.ts`.)
 
 ---
 
-### 2. Auth (Planned)
+### 2. Auth
 
 | Method | Route | Auth | Purpose |
 |---|---|---|---|
-| `GET` | `/api/auth/me` | Required | Returns the current authenticated user's DB profile (synced from Clerk). Creates user if not exists (lazy sync). |
+| `GET` | `/api/auth/me` | Required | Returns the authenticated user's MongoDB profile (synced from Clerk via webhook). |
 
 #### Response (200 OK)
 
@@ -63,13 +63,8 @@ Some routes (like health check and webhooks) are public and do not require auth.
     "_id": "...",
     "clerkId": "...",
     "email": "...",
-    "username": "...",
-    "avatar": "...",
-    "online": false,
-    "lastSeen": "2026-10-12T...",
-    "themePrefs": { "theme": "light", "mode": "light" },
-    "wallpaper": null,
-    "keyboardSound": false,
+    "fullName": "...",
+    "profilePic": "...",
     "createdAt": "...",
     "updatedAt": "..."
   }
@@ -77,13 +72,15 @@ Some routes (like health check and webhooks) are public and do not require auth.
 ```
 
 #### Notes
-- Uses Auth Middleware to verify token.
-- Syncs with DB if user doesn't exist yet.
+- Uses Auth Middleware to verify the Clerk token and load the user by `clerkId`.
+- Sync is **webhook-only** (`user.created` / `user.updated` / `user.deleted`). There is no lazy sync: if the user is not in MongoDB yet, this returns `404` with `{ "message": "User profile is not synced yet" }`.
 - See [`AUTH.md`](./AUTH.md) for full auth flow.
 
 ---
 
-### 3. Conversations (Planned)
+### 3. Conversations (Not Implemented)
+
+> The app currently derives sidebar conversations directly from the `Message` collection (see `GET /api/messages/conversations`). There is no `Conversation` model or `/api/conversations` route yet; the contract below is a design target, not current behavior.
 
 | Method | Route | Auth | Purpose |
 |---|---|---|---|
@@ -124,127 +121,124 @@ Some routes (like health check and webhooks) are public and do not require auth.
 
 ---
 
-### 4. Messages (Planned)
+### 4. Messages
+
+All routes are mounted under `/api/messages` and require auth (the router applies `authMiddleware`).
 
 | Method | Route | Auth | Purpose |
 |---|---|---|---|
-| `GET` | `/api/messages/:conversationId` | Required | Fetch messages for a conversation with pagination (oldest→newest or newest→oldest). Must be participant. |
-| `POST` | `/api/messages` | Required | Create/send a message (text and/or media). Message is persisted and also emitted via Socket.IO to room. |
+| `GET` | `/api/messages/users` | Required | List all users except the current one (for the sidebar). Omits `clerkId`. |
+| `GET` | `/api/messages/conversations` | Required | List chat partners derived from messages, most recent first. |
+| `GET` | `/api/messages/:id` | Required | Fetch the message history between the current user and user `:id`, oldest first. |
+| `POST` | `/api/messages/send/:id` | Required | Send a text and/or media message to user `:id`. |
 
-#### GET `/api/messages/:conversationId` – Query Params
-
-| Param | Type | Required | Default | Notes |
-|---|---|---|---|---|
-| `page` | `number` | No | `1` | Page number for pagination. |
-| `limit` | `number` | No | `20` | Messages per page. Use cursor-based or skip/limit for infinite scroll. |
-
-#### GET Response (200 OK)
+#### GET `/api/messages/users` – Response (200 OK)
 
 ```json
-{
-  "success": true,
-  "messages": [
-    {
-      "_id": "...",
-      "conversationId": "...",
-      "sender": { "_id": "...", "clerkId": "...", "username": "...", "avatar": "..." },
-      "text": "Hello!",
-      "media": [],
-      "readBy": [],
-      "deliveredAt": "...",
-      "createdAt": "..."
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 100,
-    "hasNext": true
+[
+  {
+    "_id": "...",
+    "email": "...",
+    "fullName": "...",
+    "profilePic": "...",
+    "createdAt": "...",
+    "updatedAt": "..."
   }
-}
+]
 ```
 
-#### POST `/api/messages` – Request
+#### GET `/api/messages/conversations` – Response (200 OK)
+
+One user object per chat partner, sorted by latest message time. Partners whose user record was deleted are omitted.
 
 ```json
-{
-  "conversationId": "...",
-  "text": "Hey, check this out!",
-  "media": [
-    {
-      "url": "https://ik.imagekit.io/...",
-      "type": "image",
-      "thumbnailUrl": "...",
-      "fileId": "...",
-      "key": "...",
-      "size": 12345,
-      "mimeType": "image/jpeg"
-    }
-  ]
-}
+[
+  {
+    "_id": "...",
+    "email": "...",
+    "fullName": "...",
+    "profilePic": "...",
+    "createdAt": "...",
+    "updatedAt": "..."
+  }
+]
+```
+
+#### GET `/api/messages/:id` – Response (200 OK)
+
+```json
+[
+  {
+    "_id": "...",
+    "senderId": "...",
+    "receiverId": "...",
+    "text": "Hello!",
+    "image": null,
+    "video": null,
+    "createdAt": "...",
+    "updatedAt": "..."
+  }
+]
+```
+
+Returns `400 { "message": "Invalid user id" }` when `:id` is not a valid ObjectId.
+
+#### POST `/api/messages/send/:id` – Request
+
+`Content-Type: multipart/form-data`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `text` | `string` | Conditional | Required if no `media` file is sent. |
+| `media` | `file` | Conditional | Single image/video. Required if `text` is empty. |
+
+Example:
+
+```bash
+curl -X POST http://localhost:3000/api/messages/send/<userId> \
+  -H "Authorization: Bearer <token>" \
+  -F "text=Hey, check this out!" \
+  -F "media=@/path/to/image.jpg"
 ```
 
 #### POST Response (201 Created)
 
 ```json
 {
-  "success": true,
-  "message": { /* same as above */ }
+  "_id": "...",
+  "senderId": "...",
+  "receiverId": "...",
+  "text": "Hey, check this out!",
+  "image": "https://ik.imagekit.io/.../chat-...-image.jpg",
+  "video": null,
+  "createdAt": "...",
+  "updatedAt": "..."
 }
 ```
 
 #### Notes
-- At least one of `text` or `media` should be present (validation).
-- Sender is inferred from authenticated user (via Auth Middleware).
-- After persistence, the Socket.IO server broadcasts the message to all participants in the conversation room.
-- See [`SOCKETS.md`](./SOCKETS.md) for real-time event details.
+- At least one of `text` or `media` is required; otherwise `400`.
+- An invalid `:id` returns `400`.
+- Upload limits: 25 MB (`MAX_FILE_SIZE`) and an explicit image/video MIME allowlist. Oversized files return `413`; unsupported types return `400`.
+- Images are stored in `image`; videos in `video`.
+- Socket.IO broadcast is not implemented yet.
 
 ---
 
-### 5. Media Upload (Planned)
+### 5. Media Upload (Not Implemented as a Standalone Route)
 
-| Method | Route | Auth | Purpose |
-|---|---|---|---|
-| `POST` | `/api/upload` | Required | Upload image/video file from scratch using Multer. File is validated, then uploaded to ImageKit. Returns media metadata for use in messages. |
-
-#### Request
-- `Content-Type: multipart/form-data`
-- Field name: `media` (or `file`) – single file upload
-
-Example (curl):
-
-```bash
-curl -X POST http://localhost:3000/api/upload \
-  -H "Authorization: Bearer <token>" \
-  -F "media=@/path/to/image.jpg"
-```
-
-#### Response (200 OK)
-
-```json
-{
-  "success": true,
-  "media": {
-    "url": "https://ik.imagekit.io/your_id/filename.jpg",
-    "thumbnailUrl": "https://ik.imagekit.io/your_id/tr:w-300,h-300/filename.jpg",
-    "type": "image",
-    "fileId": "file_xxx",
-    "key": "filename.jpg",
-    "size": 245632,
-    "mimeType": "image/jpeg"
-  }
-}
-```
+There is no `POST /api/upload` route yet. Media is uploaded as part of `POST /api/messages/send/:id` using the `media` field: the controller sends the in-memory buffer to ImageKit and stores the returned URL on the message.
 
 #### Notes
-- Uses **Upload Middleware** (Multer) for parsing/validation (file type, size limits). See [`MIDDLEWARE.md`](./MIDDLEWARE.md).
-- Uploads to **ImageKit** via SDK/server-side upload. See [`MEDIA.md`](./MEDIA.md) for full explanation of "file uploads from scratch" + ImageKit.
-- Returns metadata ready to embed in Message.media array.
-- Allowed types: images (jpg, jpeg, png, webp, gif) and videos (mp4, webm, mov) – final allowlist to be confirmed in implementation.
+- Uses `backend/src/middlewares/upload.middleware.ts` (Multer memory storage) for parsing and validation. See [`MEDIA.md`](./MEDIA.md).
+- Uploads to ImageKit via `backend/src/lib/imagekit.ts`.
+- Allowed types: `image/jpeg`, `image/jpg`, `image/png`, `image/webp`, `image/gif`, `image/avif`, `video/mp4`, `video/webm`, `video/quicktime`, `video/ogg`.
+- Max size: 25 MB (`MAX_FILE_SIZE` in `backend/src/constants/env.ts`).
+- The response is the created message document (see section 4), not a standalone media object.
 
 ---
 
-### 6. Webhooks (Planned)
+### 6. Webhooks
 
 | Method | Route | Auth | Purpose |
 |---|---|---|---|
@@ -253,7 +247,7 @@ curl -X POST http://localhost:3000/api/upload \
 
 #### Important Notes
 - **Public**: No auth middleware (Clerk calls this directly).
-- **Signature verification required:** Must verify `svix` signature headers (`svix-id`, `svix-timestamp`, `svix-signature`) using `CLERK_WEBHOOK_SIGNING_SECRET`. Reject invalid requests with 401.
+- **Signature verification required:** Must verify `svix` signature headers (`svix-id`, `svix-timestamp`, `svix-signature`) using `CLERK_WEBHOOK_SIGNING_SECRET`. Invalid signatures return `400`; an unset secret returns `503`.
 - **Raw body needed:** For signature verification, the route must receive raw body, not JSON-parsed body. This affects middleware order (separate from global `express.json()`).
 - **Idempotent:** Handle retries safely (check if user already exists/updated).
 - **See:** [`AUTH.md`](./AUTH.md) and [`WEBHOOKS_CRON.md`](./WEBHOOKS_CRON.md) for full webhook flow and security.
@@ -262,42 +256,37 @@ curl -X POST http://localhost:3000/api/upload \
 
 ## Error Responses
 
-All errors (except maybe some edge cases) go through the centralized **Error Middleware** and follow a consistent structure.
-
-### Standard Error Format
+Controller errors and the centralized error middleware return a JSON object with a `message` field:
 
 ```json
 {
-  "success": false,
-  "message": "Human-readable error message",
-  "statusCode": 400
+  "message": "Human-readable error message"
 }
 ```
 
-In development, additional fields may be included (e.g., `stack`) for debugging.
+The catch-all 404 also includes `"ok": false`. There is no `success`/`statusCode` wrapper in error bodies yet.
 
 ### Common Status Codes
 
 | Code | Meaning | When |
 |---|---|---|
-| `400` | Bad Request | Invalid request body/params (missing fields, bad format). |
+| `400` | Bad Request | Invalid `:id`, missing text/media, or unsupported file type. |
 | `401` | Unauthorized | Missing or invalid auth token. |
-| `403` | Forbidden | Authenticated but not authorized to access resource (e.g., not a participant). |
-| `404` | Not Found | Resource doesn't exist (conversation, message, user). |
-| `422` | Unprocessable Entity | Validation failed (file type/size, schema validation). |
-| `429` | Too Many Requests | Rate limiting (if added later). |
+| `404` | Not Found | Unknown route, or Clerk user not synced to MongoDB yet. |
+| `413` | Payload Too Large | Upload exceeds `MAX_FILE_SIZE` (25 MB). |
 | `500` | Internal Server Error | Unexpected server error. |
+| `503` | Service Unavailable | Clerk webhook secret is not configured. |
 
 ---
 
 ## Request/Response Conventions
 
 - **JSON for API:** All API requests/responses use `application/json` except file uploads (`multipart/form-data`).
-- **Success wrapper:** Responses use `{ success: true, ...data }` for consistency.
-- **Timestamps:** Use ISO 8601 format (`YYYY-MM-DDTHH:mm:ss.sssZ`).
+- **Success shapes are not uniform yet:** `/api/auth/me` returns `{ success: true, user }`; `/health` returns `{ ok: true }`; message endpoints return the array or document directly.
+- **Timestamps:** ISO 8601 format (`YYYY-MM-DDTHH:mm:ss.sssZ`).
 - **IDs:** MongoDB ObjectIds as strings.
-- **Populated refs:** When returning nested user/conversation/message data, populated fields include minimal user info (`_id`, `clerkId`, `username`, `avatar`) to avoid leaking unnecessary data.
-- **Pagination:** For list endpoints (messages, conversations), include pagination metadata.
+- **User data:** message/user endpoints omit `clerkId`; user objects expose `_id`, `email`, `fullName`, `profilePic`, and timestamps.
+- **Pagination:** Not implemented yet; `GET /api/messages/:id` returns the full history.
 
 ---
 

@@ -31,7 +31,7 @@ The auth middleware protects routes by ensuring only authenticated users can acc
 
 ### Expected Location
 
-`backend/src/middleware/auth.middleware.ts` (TypeScript)
+`backend/src/middlewares/auth.middleware.ts` (TypeScript)
 
 ### Flow
 
@@ -74,7 +74,7 @@ The upload middleware handles multipart/form-data for file uploads. It's impleme
 
 ### Expected Location
 
-`backend/src/middleware/upload.middleware.ts` (TypeScript)
+`backend/src/middlewares/upload.middleware.ts` (TypeScript)
 
 ### Key Concepts to Explain in Code
 
@@ -107,14 +107,16 @@ const fileFilter = (req, file, cb) => { /* validate mimetype */ };
 // Configure upload
 const upload = multer({ storage, fileFilter, limits: { fileSize: ... } });
 
-export const uploadSingle = upload.single('media');
+export const upload = multer({ storage, fileFilter, limits: { fileSize: MAX_FILE_SIZE } });
+
+// Routes call: upload.single("media")
 ```
 
 *(Implementation will reflect actual choices and include detailed comments.)*
 
 ---
 
-## 3. Error Middleware (Planned)
+## 3. Error Middleware
 
 The error middleware is the **last** middleware in the stack. It catches errors thrown in route handlers, middleware, or controllers and returns consistent, structured error responses to the client.
 
@@ -128,7 +130,7 @@ The error middleware is the **last** middleware in the stack. It catches errors 
 
 ### Expected Location
 
-`backend/src/middleware/error.middleware.ts` (TypeScript)
+`backend/src/middlewares/error.middleware.ts` (TypeScript)
 
 ### Flow
 
@@ -138,20 +140,18 @@ The error middleware is the **last** middleware in the stack. It catches errors 
 4. **Send response:** Return JSON with `statusCode` and `message`. In development, can include stack trace; in production, omit stack.
 5. **Log if needed:** Log unexpected errors for debugging.
 
-### Custom Error Classes (Planned)
+### Current Behavior
 
-Creating custom error classes helps standardize errors across the app:
+`backend/src/middlewares/error.middleware.ts` implements a single `errorHandler` (4 args). It does not use custom error classes yet:
 
-| Error Class | Status | Purpose | Example |
-|---|---|---|---|
-| **`AppError`** (base) | Custom | Base class with `statusCode`, `isOperational` | Inherit from Error |
-| **`UnauthorizedError`** | 401 | Missing/invalid token | Auth middleware |
-| **`ForbiddenError`** | 403 | Valid auth but not allowed | Access control (not participant) |
-| **`NotFoundError`** | 404 | Resource not found | Missing conversation/message |
-| **`BadRequestError`** | 400 | Invalid request body/params | Validation failures |
-| **`ValidationError`** | 422/400 | Schema/field validation | Multer/file validation |
+| Error | Status | Response |
+|---|---|---|
+| `multer.MulterError` with `LIMIT_FILE_SIZE` | `413` | `{ message: "File too large. Maximum size is 25MB." }` |
+| Other `multer.MulterError` | `400` | `{ message: err.message }` |
+| `Error` with a numeric `status` property (e.g. upload filter rejection) | that status | `{ message: err.message }` |
+| Anything else | `500` | `{ message: "Internal Server Error" }` (logged server-side) |
 
-These make error handling explicit and self-documenting.
+The upload `fileFilter` attaches `{ status: BAD_REQUEST }` to its rejection error so it lands in the `400` branch. Custom error classes are still a possible future refactor.
 
 ### Learning Points
 
@@ -164,11 +164,17 @@ These make error handling explicit and self-documenting.
 ### Example Structure (Conceptual)
 
 ```ts
-const errorMiddleware = (err, req, res, next) => {
-  const statusCode = err.statusCode || 500; // or import INTERNAL_SERVER_ERROR constant
-  const message = err.message || "Internal Server Error";
-  res.status(statusCode).json({ success: false, message, ...(process.env.NODE_ENV==='development' && { stack: err.stack }) });
-};
+export function errorHandler(err, _req, res, _next) {
+  if (err instanceof multer.MulterError) {
+    const status = err.code === "LIMIT_FILE_SIZE" ? PAYLOAD_TOO_LARGE : BAD_REQUEST;
+    return res.status(status).json({ message: err.message });
+  }
+  if (err instanceof Error && typeof err.status === "number") {
+    return res.status(err.status).json({ message: err.message });
+  }
+  console.error("Unhandled error:", err);
+  res.status(INTERNAL_SERVER_ERROR).json({ message: "Internal Server Error" });
+}
 ```
 
 ---
@@ -191,15 +197,15 @@ The order in which middleware are registered is **extremely important** in Expre
 ### Example Registration Order (Conceptual)
 
 ```ts
+app.use('/api/webhooks/clerk', express.raw({ type: 'application/json' }), webhookRouter); // before express.json()
 app.use(express.json());
-app.use(cors({ origin: CLIENT_URL }));
-app.use('/api/webhooks/clerk', webhookRouter); // public, no auth before
-app.use('/api', authMiddleware); // protect all /api routes below (except webhooks)
-app.use('/api/upload', uploadSingle, uploadRouter);
-app.use('/api/conversations', conversationRouter);
-app.use('/api/messages', messageRouter);
-// ... other routes
-app.use(errorMiddleware); // must be last
+app.use(cors({ origin: FRONTEND_URL, credentials: true }));
+app.use(clerkMiddleware());
+app.get('/health', ...);
+app.use('/api/auth', authRouter);
+app.use('/api/messages', messageRouter); // messageRouter applies authMiddleware
+// ... SPA static serving + JSON 404
+app.use(errorHandler); // must be last, 4 args
 ```
 
 **Learning point:** Webhooks often require the **raw body** (not parsed JSON) for signature verification. We'll handle that carefully when implementing Clerk webhooks (separating webhook route from global `express.json()` if needed).

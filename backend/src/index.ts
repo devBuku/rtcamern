@@ -11,6 +11,8 @@ import connectToDb from "./lib/db";
 import job from "./lib/cron";
 import clerkWebhook from "./webhooks/clerk.webhook";
 import authRouter from "./routes/auth.route";
+import messageRouter from "./routes/message.route";
+import { errorHandler } from "./middlewares/error.middleware";
 
 const app: Express = express();
 // Frontend build is copied to /app/public at image build time. Resolve it
@@ -43,6 +45,7 @@ app.get(
 );
 
 app.use("/api/auth", authRouter);
+app.use("/api/messages", messageRouter);
 
 if (fs.existsSync(publicDir)) {
   app.use(express.static(publicDir));
@@ -62,6 +65,9 @@ if (fs.existsSync(publicDir)) {
 app.use(function (_req, res: Response<{ message: string; ok: boolean }>): void {
   res.status(NOT_FOUND).json({ message: "Route not found", ok: false });
 });
+
+// Error handler must come last and keep the 4-argument signature.
+app.use(errorHandler);
 
 (async function () {
   try {

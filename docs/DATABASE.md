@@ -20,36 +20,31 @@ The application uses **MongoDB** (a NoSQL document database) to store:
 
 ### 1. User Model
 
-The User model represents an authenticated user in the application. Users are primarily authenticated via Clerk, but we store app-specific data (online status, last seen, themes, wallpapers, etc.) in MongoDB.
+The User model represents an authenticated user in the application. Users are authenticated via Clerk; the MongoDB document is kept in sync by the Clerk webhook.
+
+> **Current schema:** only `clerkId`, `email`, `fullName`, `profilePic`, and timestamps exist today. Presence and preference fields are future work.
 
 #### Fields
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
-| **`clerkId`** | `String` | Yes (Unique) | — | Clerk's unique user identifier. Used to link Clerk user to DB user. This is the primary reference for auth. |
-| **`email`** | `String` | Yes | — | User's email address (from Clerk). Can be used for lookups and display. |
-| **`username`** | `String` | Optional | — | Display/username. May be derived from Clerk profile or user-defined. |
-| **`avatar`** | `String` | Optional | `""` or null | Profile picture URL (can come from Clerk or be user-uploaded later). |
-| **`online`** | `Boolean` | Optional | `false` | Real-time presence flag (`true` if user has an active socket connection). Updated via Socket.IO events. |
-| **`lastSeen`** | `Date` | Optional | `Date.now()` | Timestamp of when the user was last online. Useful for "last seen" indicators when offline. |
-| **`themePrefs`** | `Object` | Optional | `{ theme: "light", mode: "light" }` | User's theme preferences (dark/light mode, multiple themes). Stored to persist across sessions/devices. |
-| **`wallpaper`** | `String` | Optional | `null` | Selected chat wallpaper/background (URL or identifier). Personalization feature. |
-| **`keyboardSound`** | `Boolean` | Optional | `false` | Toggle for optional keyboard sound effects. Respects user preference. |
+| **`clerkId`** | `String` | Yes (Unique) | — | Clerk's unique user identifier. Links the Clerk user to the DB user. |
+| **`email`** | `String` | Yes (Unique) | — | User's primary email from Clerk. |
+| **`fullName`** | `String` | Yes | — | Display name derived from Clerk's first/last name, username, or email prefix. |
+| **`profilePic`** | `String` | Optional | `""` | Profile picture URL from Clerk. |
 | **`createdAt`** | `Date` | Auto | `Date.now()` | Timestamp when the user document was created. |
 | **`updatedAt`** | `Date` | Auto | `Date.now()` | Timestamp when the user document was last updated. |
 
 #### Design Rationale
 
 - **`clerkId` as unique identifier:** Clerk is the source of truth for authentication. Storing `clerkId` avoids duplicating auth logic and makes webhook/user sync straightforward.
-- **Separation of concerns:** Auth credentials stay in Clerk; app-specific state (presence, UI preferences) lives in MongoDB.
-- **Presence fields (`online`, `lastSeen`):** Essential for "online user presence tracking" (highlight requirement). `online` is volatile (socket-driven), `lastSeen` persists history.
-- **Preferences stored per-user:** Themes, wallpapers, and sound toggles improve UX and demonstrate user-specific settings.
+- **Webhook-driven sync:** `user.created` / `user.updated` upsert by `clerkId`; `user.deleted` removes the document.
+- **Future state:** Presence (`online`, `lastSeen`) and UI preferences (theme, wallpaper, sound) are planned but not implemented.
 
-#### Indexes (Planned)
+#### Indexes
 
-- `clerkId` – Unique index (for fast lookup on auth/webhooks).
-- `email` – Index (for potential lookups/admin features).
-- `online` – Sparse/index if querying large online lists (optional optimization later).
+- `clerkId` – Unique index (auth/webhook lookups).
+- `email` – Unique index.
 
 ---
 
@@ -89,49 +84,36 @@ A Conversation represents a chat between one or more participants. Initially, **
 
 ### 3. Message Model
 
-The Message model stores individual chat messages. Supports both plain text and media (images/videos) with metadata from ImageKit.
+The Message model stores individual chat messages. Each message is between two users (`senderId`/`receiverId`) and may contain text and/or one media URL.
+
+> **Current schema:** messages are 1:1 and store a single `image` or `video` URL. There is no `Conversation` collection, `media[]` array, read receipts, or delivery metadata yet.
 
 #### Fields
 
 | Field | Type | Required | Default | Description |
 |---|---|---|---|---|
-| **`conversationId`** | `ObjectId` (ref: `Conversation`) | Yes | — | Reference to the conversation this message belongs to. Critical for grouping and room broadcasts. |
-| **`sender`** | `ObjectId` (ref: `User`) | Yes | — | Reference to the user who sent the message. Used for display (avatar, name) and permissions. |
-| **`text`** | `String` | Optional | `""` | Message text content. Can be empty if message contains only media (or vice versa). |
-| **`media`** | `[Object]` | Optional | `[]` | Array of media attachments (images/videos). Each object stores URLs, type, and ImageKit metadata. |
-| **`readBy`** | `[ObjectId]` (ref: `User`) | Optional | `[]` | Array of user IDs who have read this message. Supports read receipts UI. |
-| **`deliveredAt`** | `Date` | Optional | `Date.now()` | Timestamp when the message was delivered/persisted to server. Can differ from read time. |
-| **`createdAt`** | `Date` | Auto | `Date.now()` | Message creation timestamp. Used for ordering and UI display. |
-| **`updatedAt`** | `Date` | Auto | `Date.now()` | Last update (rare for messages, but useful for edits in future). |
+| **`senderId`** | `ObjectId` (ref: `User`) | Yes | — | User who sent the message. |
+| **`receiverId`** | `ObjectId` (ref: `User`) | Yes | — | User who receives the message. |
+| **`text`** | `String` | Optional | — | Message text. May be absent when a media URL is present. |
+| **`image`** | `String` | Optional | `null` | ImageKit URL for an uploaded image. |
+| **`video`** | `String` | Optional | `null` | ImageKit URL for an uploaded video. |
+| **`createdAt`** | `Date` | Auto | `Date.now()` | Message creation timestamp (used for ordering). |
+| **`updatedAt`** | `Date` | Auto | `Date.now()` | Last update timestamp. |
 
-#### Media Subdocument Structure
+#### Media Storage
 
-Each item in `media[]` will store:
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| **`url`** | `String` | Yes | Main media URL (from ImageKit). Used for display. |
-| **`thumbnailUrl`** | `String` | Optional | Thumbnail URL (especially useful for videos or image previews). Can be ImageKit transformation. |
-| **`type`** | `"image" \| "video"` | Yes | Media type for rendering (image vs video element). |
-| **`fileId`** | `String` | Optional | ImageKit file ID (useful for future deletion/management if needed). |
-| **`key`** | `String` | Optional | ImageKit file path/key (for organization/reference). |
-| **`size`** | `Number` | Optional | File size in bytes (for display/validation info). |
-| **`mimeType`** | `String` | Optional | MIME type (e.g., `image/jpeg`, `video/mp4`) for validation/context. |
+Only the uploaded URL is persisted (`image` or `video`). ImageKit metadata such as `fileId`, `thumbnailUrl`, `size`, and `mimeType` is **not** stored yet; it is returned by the SDK but discarded.
 
 #### Design Rationale
 
-- **`conversationId` + `createdAt`:** Core for message retrieval with pagination (infinite scroll). Messages are fetched by conversation ordered by time.
-- **Text + Media combined:** Supports "image & video sharing" as stated in highlights. A message can be text-only, media-only, or mixed.
-- **`readBy` array:** Tracks which participants have read each message. Enables read receipt indicators (e.g., double ticks/checks).
-- **`deliveredAt` vs `readBy`:** Separates delivery vs read semantics—useful for real-time UX.
-- **ImageKit metadata stored:** Storing `fileId`, `key`, `thumbnailUrl`, etc. keeps media traceable and enables future features (transformations, cleanup if needed).
-- **References over embedding:** Using ObjectId refs (User, Conversation) keeps documents small and normalized. Populate as needed for UI.
+- **`senderId` + `receiverId` + `createdAt`:** Enough to fetch a 1:1 history ordered by time without a separate conversation document.
+- **Text + single media field:** Supports text-only, media-only, or mixed messages while keeping the document small.
+- **Derived conversations:** The sidebar aggregation groups messages by the other participant (`GET /api/messages/conversations`), so no `Conversation` collection is required yet.
+- **Future state:** `media[]`, read receipts, delivery timestamps, and group conversations are planned.
 
-#### Indexes (Planned)
+#### Indexes
 
-- `{ conversationId: 1, createdAt: -1 }` – Critical for fetching messages with pagination (newest first) and efficient range queries.
-- `{ conversationId: 1 }` – For general conversation message lookups.
-- `{ sender: 1 }` – For user activity/history queries (optional).
+No explicit indexes yet. A compound `{ senderId: 1, receiverId: 1, createdAt: 1 }` would help the history query as data grows.
 
 ---
 
@@ -139,27 +121,27 @@ Each item in `media[]` will store:
 
 | Relationship | Type | Description |
 |---|---|---|
-| **User ↔ Conversation** | Many-to-Many | A user can be in multiple conversations; a conversation has multiple participants (`participants` array). |
-| **Conversation ↔ Message** | One-to-Many | One conversation contains many messages. Each message belongs to exactly one conversation. |
-| **User ↔ Message** | One-to-Many | A user can send many messages; each message has one sender. |
-| **Message ↔ Read Receipts** | Many-to-Many (implicit) | `readBy` references multiple users who have read a message. |
+| **User ↔ Message (sent)** | One-to-Many | A user can send many messages (`senderId`). |
+| **User ↔ Message (received)** | One-to-Many | A user can receive many messages (`receiverId`). |
+| **User ↔ User (chat)** | Many-to-Many (implicit) | A message links two users; there is no join/Conversation document. |
+| **Conversation ↔ Message** | Not implemented | Conversations are derived from messages; there is no Conversation collection. |
 
 ---
 
 ## Data Integrity & Considerations
 
-- **Duplicate 1:1 conversations (planned prevention):** For 1:1 chats, ensure we don't create duplicate conversations between the same two users. Can be enforced by ordering participant IDs and using a compound unique index (e.g., `participants` sorted) or by checking before creation.
-- **Soft vs Hard Deletes:** Initially, hard deletes are not planned. For learning, focus on core CRUD. Can consider soft deletes later if needed (archived conversations, deleted messages).
-- **Message Pagination:** Messages will be fetched with limit/skip or cursor-based pagination using `createdAt` (or `_id`) for infinite scroll—important for performance as chats grow.
-- **Orphaned Media (future):** If messages are deleted, ImageKit media might become orphaned. The planned cron job (see [`WEBHOOKS_CRON.md`](./WEBHOOKS_CRON.md)) can help with cleanup of orphaned/temp files.
-- **Validation:** Mongoose schema validation + application-level validation (e.g., Zod if added later) to ensure data integrity.
-- **Timestamps:** Mongoose `timestamps: true` can be used to auto-manage `createdAt`/`updatedAt`.
+- **1:1 messages only:** `senderId` and `receiverId` are both required; there is no conversation document, so there is no duplicate-conversation concern yet.
+- **Deletes:** Messages are not cascade-deleted when a user is deleted. The conversations aggregation filters out partners whose user record no longer exists.
+- **Message Pagination:** Not implemented yet — `GET /api/messages/:id` returns the full history sorted oldest-first.
+- **Orphaned Media (future):** Deleting messages does not remove ImageKit files; a cleanup job is future work.
+- **Validation:** Mongoose schema validation plus controller-level checks (`:id` ObjectId validity, text-or-media required).
+- **Timestamps:** `timestamps: true` manages `createdAt`/`updatedAt`.
 
 ---
 
 ## Evolution Notes
 
-- **Group Chats:** Model already supports `isGroup`, `groupName`, `groupAvatar`. If implemented later, group logic (permissions, read receipts per member) will be documented here.
+- **Group Chats:** Not implemented. The current model is strictly 1:1 (`senderId`/`receiverId`); group support is a future design.
 - **Message Reactions/Edits (future):** Fields can be extended later. Current design keeps it minimal and focused on core requirements.
 - **Typing State:** Typing is ephemeral (socket-only), not persisted in DB—correct design choice.
 
@@ -171,8 +153,8 @@ Each item in `media[]` will store:
 - [`API.md`](./API.md) – REST endpoints for CRUD operations
 - [`SOCKETS.md`](./SOCKETS.md) – How messages/presence flow in real-time
 - [`AUTH.md`](./AUTH.md) – User sync and Clerk integration
-- [`MEDIA.md`](./MEDIA.md) – Media storage and Message.media structure
+- [`MEDIA.md`](./MEDIA.md) – Media storage and `Message.image` / `Message.video` fields
 
 ---
 
-*Last updated: Initial schema design (User, Conversation, Message). This document will be updated as models are actually implemented in code.*
+*Last updated: Reflects the implemented User and Message schemas (Conversation model is a design target only).*

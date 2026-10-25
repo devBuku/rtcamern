@@ -107,13 +107,13 @@ Protected routes require a valid Clerk token. Examples of planned protected rout
 
 | Method | Route | Purpose | Notes |
 |---|---|---|---|
-| `GET` | `/api/auth/me` | Get current authenticated user (sync + return DB user) | Uses auth middleware. |
-| `POST` | `/api/conversations` | Create/find a conversation | Requires auth. |
-| `GET` | `/api/conversations` | Get all conversations for current user | Requires auth. |
-| `GET` | `/api/messages/:conversationId` | Get messages for a conversation (paginated) | Requires auth + ensure user is participant. |
-| `POST` | `/api/upload` | Upload media file | Requires auth. Uses upload middleware (Multer). |
+| `GET` | `/api/auth/me` | Get current authenticated user (from MongoDB) | Uses auth middleware; `404` if not synced yet. |
+| `GET` | `/api/messages/users` | List users for the sidebar | Requires auth. |
+| `GET` | `/api/messages/conversations` | List chat partners | Requires auth. |
+| `GET` | `/api/messages/:id` | Get 1:1 message history | Requires auth. |
+| `POST` | `/api/messages/send/:id` | Send a text/media message | Requires auth; multipart field `media`. |
 
-**Access control:** Beyond auth, some routes need **authorization** (e.g., only participants can view messages in a conversation). This will be enforced in controllers/middleware as implemented.
+**Access control:** Message routes are scoped to the authenticated user's `_id`; the controller only reads/writes messages where the user is `senderId` or `receiverId`. Conversation endpoints are not implemented yet (conversations are derived from messages).
 
 ---
 

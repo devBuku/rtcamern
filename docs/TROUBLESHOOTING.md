@@ -98,8 +98,8 @@ This document covers common issues you might encounter while developing **rtcame
 | **Multer: Unexpected field** | Wrong field name in form-data | Use field name `media` (matches `upload.single('media')`). Check client form. |
 | **File too large** | Exceeds `limits.fileSize` | Increase limit if needed or compress client-side. Check Multer limits config. |
 | **Unsupported file type** | MIME not in allowlist | Check file mimetype. Add to allowlist if legitimate. Or fix client. See [`MEDIA.md`](./MEDIA.md). |
-| **req.file undefined** | Multer middleware not applied or wrong order | Apply `uploadSingle` middleware to route. Ensure using `multipart/form-data`. |
-| **ImageKit upload fails (401/403)** | Wrong private/public key or invalid credentials | Verify `IMAGEKIT_PRIVATE_KEY`, `IMAGEKIT_PUBLIC_KEY`, `IMAGEKIT_URL_ENDPOINT`. Check ImageKit dashboard. Never expose private key to frontend. |
+| **req.file undefined** | Multer middleware not applied or wrong order | Apply `upload.single('media')` to the route. Ensure using `multipart/form-data`. |
+| **ImageKit upload fails (401/403)** | Wrong private key or invalid credentials | Verify `IMAGEKIT_PRIVATE_KEY`; also check `IMAGEKIT_URL_ENDPOINT` and `IMAGEKIT_ID`. Check ImageKit dashboard. Never expose the private key to frontend. |
 | **ImageKit upload fails (network)** | Internet issue or ImageKit down | Check network. Retry. Log full error from ImageKit SDK. |
 | **Buffer undefined with memoryStorage** | Using diskStorage config accidentally | Ensure `multer({ storage: multer.memoryStorage() })`. |
 | **CORS on upload** | Upload route blocked | Same CORS applies. Ensure auth token sent. |

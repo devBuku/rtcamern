@@ -1,8 +1,6 @@
 function getEnv(key: string, defaultValue?: string) {
   const value = process.env[key] ?? defaultValue;
-
   if (value === undefined) throw new Error(`${key} is not found!!`);
-
   return value;
 }
 
@@ -46,3 +44,9 @@ export const DB_NAME = getEnv("DB_NAME", "rtcamern");
 export const FRONTEND_URL = getEnv("FRONTEND_URL", "http://localhost:5173");
 export const CLERK_WEBHOOK_SIGNING_SECRET =
   process.env.CLERK_WEBHOOK_SIGNING_SECRET;
+
+export const IMAGEKIT_PRIVATE_KEY = getEnv("IMAGEKIT_PRIVATE_KEY");
+export const IMAGEKIT_URL_ENDPOINT = getEnv("IMAGEKIT_URL_ENDPOINT");
+export const IMAGEKIT_ID = getEnv("IMAGEKIT_ID");
+
+export const MAX_FILE_SIZE = 25 * 1024 * 1024;

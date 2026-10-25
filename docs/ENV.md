@@ -20,19 +20,16 @@ Backend environment variables live in `backend/.env`. An example is provided in 
 | **`MONGO_URI_DOCKER`** | `string` | Optional (dev/test) | `mongodb://localhost:27017` | MongoDB connection string (without database name) used when `NODE_ENV=development` or `test`. | Preferred for local Docker dev. If not set, falls back to `MONGO_URI`. |
 | **`DB_NAME`** | `string` | Optional | `rtcamern` | Database name passed to Mongoose (`dbName`). | Kept separate from URI so same cluster can host multiple databases cleanly. |
 | **`FRONTEND_URL`** | `string` | Optional | `http://localhost:5173` | Frontend URL allowed for CORS and used for allowed origins. | Update on deployment (e.g., Netlify/Vercel URL). |
+| **`CLERK_PUBLISHABLE_KEY`** | `string` | Yes (Auth) | — | Publishable key used by `@clerk/express` to resolve the Clerk frontend API. | Same value as the frontend key. |
+| **`CLERK_SECRET_KEY`** | `string` | Yes (Auth) | — | Clerk backend secret key for verifying JWTs and calling Clerk APIs. | Never expose to frontend. |
+| **`CLERK_WEBHOOK_SIGNING_SECRET`** | `string` | Optional (Webhooks) | — | Webhook signing secret to verify Clerk webhook events. | The webhook returns `503` when unset. |
+| **`IMAGEKIT_PRIVATE_KEY`** | `string` | Yes (Media) | — | ImageKit private key used server-side by `@imagekit/nodejs`. **Never expose to frontend.** | Validated at import time; the server won't start without it. |
+| **`IMAGEKIT_URL_ENDPOINT`** | `string` | Yes (Media) | — | ImageKit URL endpoint (e.g., `https://ik.imagekit.io/your_id/`). | Validated at import time. Currently reserved for URL building. |
+| **`IMAGEKIT_ID`** | `string` | Yes (Media) | — | ImageKit account identifier from the dashboard. | Validated at import time. Currently unused by the upload path. |
 
-### Planned Variables (To be added as implemented)
+### Future Variables
 
-These will be added as authentication, media, webhooks, and deployment features are built:
-
-| Variable | Type | Required | Purpose | Where to Get It |
-|---|---|---|---|---|
-| **`CLERK_SECRET_KEY`** | `string` | Yes (Auth) | Clerk backend API key for verifying JWTs and calling Clerk APIs. | [Clerk Dashboard → API Keys → Secret Keys](https://dashboard.clerk.com/last-active?path=api-keys) |
-| **`CLERK_PUBLISHABLE_KEY`** | `string` | Yes (Auth) | Publishable key used by the `@clerk/express` middleware to resolve the Clerk frontend API. Required at runtime on the backend (a request fails without it). | Same value as the frontend publishable key. |
-| **`CLERK_WEBHOOK_SIGNING_SECRET`** | `string` | Yes (Webhooks) | Webhook signing secret to verify Clerk webhook events. | [Clerk Dashboard → Webhooks → Signing Secret](https://dashboard.clerk.com/last-active?path=webhooks) |
-| **`IMAGEKIT_PUBLIC_KEY`** | `string` | Yes (Media) | ImageKit public key for client-side uploads (if used) and SDK auth. | [ImageKit Dashboard → Developer Options → API Keys](https://imagekit.io/dashboard/developer/api-keys) |
-| **`IMAGEKIT_PRIVATE_KEY`** | `string` | Yes (Media) | ImageKit private key for server-side uploads. **Never expose to frontend.** | Same as above. |
-| **`IMAGEKIT_URL_ENDPOINT`** | `string` | Yes (Media) | ImageKit URL endpoint (e.g., `https://ik.imagekit.io/your_id/`). | [ImageKit Dashboard → URL Endpoints](https://imagekit.io/dashboard/url-endpoints) |
+None at the moment. Add new backend variables here as features land.
 
 ---
 
@@ -40,15 +37,16 @@ These will be added as authentication, media, webhooks, and deployment features 
 
 Frontend environment variables live in `frontend/.env`. Vite requires variables to be prefixed with `VITE_` to be exposed to the client bundle.
 
-### Current State
+### Current Variables
 
-The frontend is currently a Vite + React template with no custom env variables yet.
+| Variable | Type | Required | Purpose | Where to Get It |
+|---|---|---|---|---|
+| **`VITE_CLERK_PUBLISHABLE_KEY`** | `string` | Yes (Auth) | Clerk publishable key for frontend authentication. | [Clerk Dashboard → API Keys → Publishable Keys](https://dashboard.clerk.com/last-active?path=api-keys) |
 
 ### Planned Variables (To be added as implemented)
 
 | Variable | Type | Required | Purpose | Where to Get It |
 |---|---|---|---|---|
-| **`VITE_CLERK_PUBLISHABLE_KEY`** | `string` | Yes (Auth) | Clerk publishable key for frontend authentication. | [Clerk Dashboard → API Keys → Publishable Keys](https://dashboard.clerk.com/last-active?path=api-keys) |
 | **`VITE_API_URL`** | `string` | Yes (API) | Base URL for backend REST API. | `http://localhost:3000` for local dev. Update on deployment (e.g., Railway/Render URL). |
 | **`VITE_SOCKET_URL`** | `string` | Yes (Socket.IO) | WebSocket server URL for Socket.IO client connection. | Usually same as API URL (`http://localhost:3000`) when same server hosts Socket.IO. Update on deployment. |
 | **`VITE_IMAGEKIT_URL_ENDPOINT`** | `string` | Optional | ImageKit URL endpoint for displaying images. Can be same as backend or exposed if needed. | [ImageKit Dashboard](https://imagekit.io/dashboard/url-endpoints) |
@@ -83,4 +81,4 @@ Keeping `.env.example` up to date is crucial for new contributors and for docume
 
 ---
 
-*Last updated: Reflects current state (PORT, MONGO_URI). Will be expanded as Clerk, ImageKit, and other integrations are implemented.*
+*Last updated: Reflects current state (server, MongoDB, Clerk, ImageKit, and message uploads).*

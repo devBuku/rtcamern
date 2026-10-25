@@ -17,7 +17,7 @@ Media sharing is a core feature: users can attach images/videos to messages. The
 3. **Validation** checks file type (MIME), size limits, etc. ("from scratch" implementation).
 4. **Upload to ImageKit** from backend (server-side) using buffer/stream.
 5. **Get URLs & metadata** from ImageKit (main URL, thumbnail, fileId, key).
-6. **Store in DB** as part of `Message.media` array.
+6. **Store in DB** on `Message.image` or `Message.video`.
 7. **Send/display** in chat UI via returned URLs.
 
 ---
@@ -77,44 +77,41 @@ Prevent abuse and resource exhaustion.
 
 These are enforced via `multer({ limits: { fileSize: 50 * 1024 * 1024, files: 5 } })`.
 
-### Multer Configuration (Planned)
+### Multer Configuration
 
-Location: `backend/src/middleware/upload.middleware.ts`
+Location: `backend/src/middlewares/upload.middleware.ts` (note the plural `middlewares/` directory).
 
 ```ts
 import multer from "multer";
-import { BadRequestError } from "../utils/errors"; // custom error
+import { MAX_FILE_SIZE } from "../constants/env";
+import { BAD_REQUEST } from "../constants/http-status";
 
-const storage = multer.memoryStorage();
+const allowedTypes = new Set([
+  "image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif", "image/avif",
+  "video/mp4", "video/webm", "video/quicktime", "video/ogg",
+]);
 
-const fileFilter = (req, file, cb) => {
-  const allowedImage = ["image/jpeg","image/jpg","image/png","image/webp","image/gif","image/avif"];
-  const allowedVideo = ["video/mp4","video/webm","video/quicktime","video/ogg"];
-  const allowed = [...allowedImage, ...allowedVideo];
-  if (allowed.includes(file.mimetype)) {
+export const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_FILE_SIZE }, // 25 MB
+  fileFilter: (_req, file, cb) => {
+    if (!allowedTypes.has(file.mimetype)) {
+      cb(Object.assign(
+        new Error("Unsupported file type. Only images and videos are allowed."),
+        { status: BAD_REQUEST },
+      ));
+      return;
+    }
     cb(null, true);
-  } else {
-    cb(new BadRequestError("Unsupported file type. Only images/videos allowed."), false);
-  }
-};
-
-const upload = multer({
-  storage,
-  fileFilter,
-  limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB
-    files: 5
-  }
+  },
 });
-
-export const uploadSingle = upload.single("media");
-export const uploadMultiple = upload.array("media", 5);
 ```
 
 **Notes:**
-- Field name `"media"` matches API contract (`API.md`).
-- Custom `BadRequestError` ensures consistent error shape via error middleware.
-- Add detailed comments explaining each choice.
+- Field name is `"media"` and routes call `upload.single("media")`.
+- The filter uses an explicit MIME allowlist (not `image/*`) so SVG and other formats are rejected.
+- `MAX_FILE_SIZE` is `25 * 1024 * 1024` in `backend/src/constants/env.ts`.
+- Rejections carry a `status` so `backend/src/middlewares/error.middleware.ts` can return JSON `400`/`413` instead of Express's HTML 500 page.
 
 ### Error Handling
 
@@ -145,46 +142,46 @@ This improves UX while keeping errors consistent.
 ### Setup Requirements
 
 From ImageKit dashboard:
-- **Public Key** – `IMAGEKIT_PUBLIC_KEY`
 - **Private Key** – `IMAGEKIT_PRIVATE_KEY` (backend only, never exposed)
 - **URL Endpoint** – `IMAGEKIT_URL_ENDPOINT` (e.g., `https://ik.imagekit.io/your_imagekit_id/`)
+- **ImageKit ID** – `IMAGEKIT_ID`
+
+This project does not use an `IMAGEKIT_PUBLIC_KEY`; the installed `@imagekit/nodejs` SDK only needs the private key for server-side uploads.
 
 See [`ENV.md`](./ENV.md) for env var details.
 
-### SDK Initialization (Planned)
+### SDK Initialization
 
 Location: `backend/src/lib/imagekit.ts`
 
 ```ts
-import ImageKit from "imagekit";
-import { IMAGEKIT_PUBLIC_KEY, IMAGEKIT_PRIVATE_KEY, IMAGEKIT_URL_ENDPOINT } from "../constants/env";
+import ImageKit, { toFile } from "@imagekit/nodejs";
+import { IMAGEKIT_PRIVATE_KEY } from "../constants/env";
 
-const imagekit = new ImageKit({
-  publicKey: IMAGEKIT_PUBLIC_KEY,
-  privateKey: IMAGEKIT_PRIVATE_KEY,
-  urlEndpoint: IMAGEKIT_URL_ENDPOINT
-});
-
-export default imagekit;
+const imagekit = new ImageKit({ privateKey: IMAGEKIT_PRIVATE_KEY });
 ```
 
-Also add env constants in `backend/src/constants/env.ts` as implemented.
+The installed `@imagekit/nodejs` SDK only needs the private key. `IMAGEKIT_URL_ENDPOINT` and `IMAGEKIT_ID` are validated at startup but not used by the upload path yet.
 
 ### Uploading from Buffer (Memory Storage)
 
 Since we use `multer.memoryStorage()`, the file is available as `req.file.buffer` with `req.file.originalname`, `req.file.mimetype`, `req.file.size`.
 
-Upload to ImageKit using `imagekit.upload()`:
+Upload to ImageKit using the SDK's `files.upload()` + `toFile()`:
 
 ```ts
-const uploadResult = await imagekit.upload({
-  file: req.file.buffer, // Buffer
-  fileName: req.file.originalname, // Original filename
-  folder: "/rtcamern/uploads", // Organize files (optional but nice)
-  useUniqueFileName: true, // Avoid name collisions
-  tags: ["chat", "user-upload"] // Optional tags for management
+// backend/src/lib/imagekit.ts
+const result = await imagekit.files.upload({
+  file: await toFile(file.buffer, fileName, { type: file.mimetype }),
+  fileName, // safe, unique name from createFileName()
+  folder: "/chat",
 });
+
+if (!result.url) throw new Error("ImageKit upload did not return a URL");
+return result.url; // stored on Message.image or Message.video
 ```
+
+`createFileName()` sanitizes the original name and prefixes it with `chat-<timestamp>-` so uploads are unique and URL-safe.
 
 **Return values from ImageKit:**
 - `url` – Main accessible URL
@@ -215,56 +212,56 @@ const thumbnailUrl = uploadResult.url.includes('?')
 
 But better to use path-based transformation or the SDK's URL generation. For learning, constructing is fine to understand transformations.
 
-### Upload Endpoint Implementation (Planned)
+### Upload Flow (Implemented)
 
-**Route:** `POST /api/upload` (see [`API.md`](./API.md))
-**Middleware:** `authMiddleware` + `uploadSingle`
+Media upload is **not** a standalone endpoint. It happens inside `POST /api/messages/send/:id`:
 
-**Controller logic:**
-1. Check `req.file` exists (if not, throw BadRequestError).
-2. Upload to ImageKit with above config.
-3. Build `media` object with required fields.
-4. Return `{ success: true, media }` to client.
+**Route:** `POST /api/messages/send/:id` (see [`API.md`](./API.md))
+**Middleware:** `authMiddleware` (router-level) + `upload.single("media")`
 
-**Example response:**
+**Controller logic (`message.controller.ts`):**
+1. Validate `:id` and require at least one of `text` or `req.file`.
+2. If `req.file` exists, call `uploadChatMedia({ buffer, originalName, mimetype })`.
+3. Store the returned URL on `Message.image` (images) or `Message.video` (videos).
+4. Save and return the created message document.
+
+**Example response (201 Created):**
 ```json
 {
-  "success": true,
-  "media": {
-    "url": uploadResult.url,
-    "thumbnailUrl": thumbnailUrl,
-    "type": req.file.mimetype.startsWith('video') ? 'video' : 'image',
-    "fileId": uploadResult.fileId,
-    "key": uploadResult.filePath || uploadResult.name,
-    "size": uploadResult.size,
-    "mimeType": uploadResult.mimeType
-  }
+  "_id": "...",
+  "senderId": "...",
+  "receiverId": "...",
+  "text": "Hey, check this out!",
+  "image": "https://ik.imagekit.io/.../chat-...-image.jpg",
+  "video": null,
+  "createdAt": "...",
+  "updatedAt": "..."
 }
 ```
 
 ### Error Handling
 
-- **Multer errors:** Caught by error middleware (invalid type, too large).
-- **ImageKit errors:** Catch and pass to error middleware (auth failure, quota, network). Return 500 or appropriate message.
-- **Missing file:** If no file after validation, `BadRequestError("No file uploaded")`.
+- **Multer errors:** `backend/src/middlewares/error.middleware.ts` maps `LIMIT_FILE_SIZE` to `413` and other Multer errors / rejected MIME types to `400` JSON.
+- **ImageKit errors:** `uploadChatMedia` throws; the controller's `try/catch` logs and returns `500 { message: "Internal Server Error" }`. A missing `url` in the SDK response is also treated as an error.
+- **Missing content:** If neither `text` nor `media` is provided, the controller returns `400 { message: "Message must contain text or media" }`.
 
 ---
 
 ## 3. Media in Messages (Database)
 
-Media references are stored in `Message.media` array as objects (see [`DATABASE.md`](./DATABASE.md)).
+The current `Message` model stores a single media URL per message in one of two fields (see [`DATABASE.md`](./DATABASE.md)):
 
-Each attachment stores:
-- `url`, `thumbnailUrl`
-- `type` ('image'|'video')
-- `fileId`, `key` (ImageKit refs)
-- `size`, `mimeType`
+| Field | Type | Description |
+|---|---|---|
+| `image` | `String` | URL of an uploaded image, or `null`. |
+| `video` | `String` | URL of an uploaded video, or `null`. |
 
-**Why store these?**
-- Display in UI without re-uploading.
-- Can reference for future operations (e.g., delete from ImageKit if message deleted—optional).
-- Thumbnails improve chat list/previews performance.
-- Type helps render correct element (`<img>` vs `<video>`).
+The controller decides based on the upload's MIME type (`video/*` → `video`, otherwise `image`). Thumbnails and ImageKit metadata (`fileId`, `size`, etc.) are not persisted yet; only the returned URL is stored.
+
+**Why store the URL?**
+- Display in the chat UI without re-uploading.
+- Keeps the message document small.
+- The richer `media[]` object design is still a future goal.
 
 ---
 
@@ -272,7 +269,7 @@ Each attachment stores:
 
 - **Server-side validation:** Always validate on backend (MIME + size). Client checks are UX only.
 - **Private key protection:** `IMAGEKIT_PRIVATE_KEY` must never reach frontend. Only used in backend SDK.
-- **Filename sanitization:** `useUniqueFileName: true` prevents collisions and path issues.
+- **Filename sanitization:** `createFileName()` strips unsafe characters and adds a timestamp prefix; ImageKit also de-duplicates names by default.
 - **Restrict file types:** Only allow images/videos to reduce attack surface.
 - **Size limits:** Prevent DoS via large uploads.
 - **CORS:** Ensure upload endpoint respects CORS rules (frontend origin only).
@@ -289,51 +286,47 @@ Each attachment stores:
 
 ---
 
-## 6. Media Flow Diagram (Conceptual)
+## 6. Media Flow Diagram (Current)
 
 ```text
 Client (select file)
   ↓ multipart/form-data
-POST /api/upload (Auth + Multer)
+POST /api/messages/send/:id (Auth + Multer)
   ↓ Multer parses & validates (type, size)
   ↓ req.file.buffer
-ImageKit.upload(buffer, filename, opts)
-  ↓ returns uploadResult + URLs
-Controller builds media object
-  ↓ returns to client
-Client embeds media in message (POST /api/messages or socket)
-  ↓ stored in Message.media
-Client displays using media.url/thumbnailUrl
+uploadChatMedia() -> imagekit.files.upload(toFile(buffer, ...))
+  ↓ returns result.url
+Controller stores URL on Message.image or Message.video
+  ↓ saves document and returns it
+Client displays using message.image / message.video
 ```
 
-This matches the planned architecture. A full Mermaid diagram will be added to [`ARCHITECTURE.md`](./ARCHITECTURE.md) when implemented.
+This reflects the current implementation. A Mermaid diagram may be added later.
 
 ---
 
-## 7. Implementation Checklist (For Hand-Coded Dev)
+## 7. Implementation Checklist
 
-- [ ] Add ImageKit env vars to `.env.example` and constants
-- [ ] Create `backend/src/lib/imagekit.ts` with SDK init + comments
-- [ ] Create `backend/src/middleware/upload.middleware.ts` with Multer config (explain choices)
-- [ ] Create upload controller in `backend/src/controllers/upload.controller.ts`
-- [ ] Create upload route in `backend/src/routes/upload.route.ts` (auth + upload middleware)
-- [ ] Register route in `index.ts` with correct order
-- [ ] Test with small files (image + video)
-- [ ] Add error handling for Multer + ImageKit errors
-- [ ] Update `Message` model media schema if needed (matches design)
-- [ ] Document any deviations from this plan inline
+- [x] Add ImageKit env vars to `.env.example` and constants (`IMAGEKIT_PRIVATE_KEY`, `IMAGEKIT_URL_ENDPOINT`, `IMAGEKIT_ID`)
+- [x] Create `backend/src/lib/imagekit.ts` with SDK init (`new ImageKit({ privateKey })`) and `uploadChatMedia`
+- [x] Create `backend/src/middlewares/upload.middleware.ts` (note the plural `middlewares/` directory)
+- [x] Integrate upload into `POST /api/messages/send/:id` (no separate upload controller/route)
+- [x] Register the messages router in `index.ts`
+- [x] Add error handling for Multer (`backend/src/middlewares/error.middleware.ts`)
+- [x] Store media URLs on `Message.image` / `Message.video`
+- [ ] Manual end-to-end test with real ImageKit credentials
 
 ---
 
 ## Related Documentation
 
 - [`MIDDLEWARE.md`](./MIDDLEWARE.md) – Upload middleware deep-dive
-- [`API.md`](./API.md) – Upload endpoint
-- [`DATABASE.md`](./DATABASE.md) – Message.media structure
+- [`API.md`](./API.md) – Messages API
+- [`DATABASE.md`](./DATABASE.md) – Message model
 - [`ENV.md`](./ENV.md) – ImageKit env vars
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) – Media flow in system
 - [`UI.md`](./UI.md) – Media UI (previews, thumbnails)
 
 ---
 
-*Last updated: Initial media handling design (Multer from scratch + ImageKit). Will be refined as implemented.*
+*Last updated: Reflects the implemented message-attached upload flow (Multer + `@imagekit/nodejs`).*
