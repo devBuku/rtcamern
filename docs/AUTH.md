@@ -14,7 +14,7 @@ Clerk is used as the authentication provider for:
 - User profile management
 - Webhooks for user lifecycle events (created, updated, deleted)
 
-The backend verifies Clerk-issued tokens on protected REST routes and on Socket.IO connections. App-specific user data (online status, preferences, etc.) is stored in the MongoDB `User` model (see [`DATABASE.md`](./DATABASE.md)).
+The backend verifies Clerk-issued tokens on protected REST routes. Socket.IO connections are **not** authenticated yet — the handshake trusts a `userId` query parameter (see [`BUGS.md`](../BUGS.md)). App-specific user data (online status, preferences, etc.) is stored in the MongoDB `User` model (see [`DATABASE.md`](./DATABASE.md)).
 
 ---
 
@@ -30,26 +30,28 @@ The backend verifies Clerk-issued tokens on protected REST routes and on Socket.
 
 ## Authentication Flow
 
-### 1. Frontend Authentication (Planned)
+### 1. Frontend Authentication (Partial)
 
-1. **Wrap app with ClerkProvider:** The React app will be wrapped with `ClerkProvider` using `VITE_CLERK_PUBLISHABLE_KEY`.
-2. **Sign-in/Sign-up:** Use Clerk's pre-built components (`<SignIn />`, `<SignUp />`) or custom flows.
-3. **Protected routes:** Wrap chat-related routes/pages with Clerk's `SignedIn`/`SignedOut` logic or a custom protected route component.
-4. **Get auth token:** For API calls, use `getToken()` from `@clerk/clerk-react` to fetch the JWT and attach it to `Authorization: Bearer <token>`.
+1. **Wrap app with ClerkProvider:** `frontend/src/main.tsx` wraps the app with `ClerkProvider` using `VITE_CLERK_PUBLISHABLE_KEY`.
+2. **Sign-in/Sign-up:** `frontend/src/App.tsx` renders Clerk's pre-built `<SignIn />` / `<SignUp />` components.
+3. **Protected routes:** still planned — there is no router or page structure yet.
+4. **Get auth token:** For API calls, use `getToken()` from `@clerk/react` (or rely on Clerk's session cookie) and send the request with credentials.
 5. **Client-side user info:** Use `useUser()` to access authenticated user details from Clerk.
 
-### 2. Backend Token Verification (Planned)
+### 2. Backend Token Verification
 
-1. **Receive request:** Protected REST endpoint receives `Authorization: Bearer <token>`.
-2. **Extract token:** Auth middleware extracts the token from headers.
-3. **Verify with Clerk:** Using `@clerk/backend` (or `jsonwebtoken` with Clerk's JWKS), verify the token's signature and claims (issuer, audience, expiration).
-4. **Attach user context:** If valid, extract `userId` (Clerk ID) and attach to `req.auth` or `req.user` for downstream handlers.
-5. **Sync to DB (optional on access):** Find or create the corresponding MongoDB `User` document using `clerkId`. This keeps app state in sync.
-6. **Reject if invalid:** Return `401 Unauthorized` for missing/invalid tokens.
+1. **Receive request:** Protected REST routes go through `authMiddleware`.
+2. **Resolve identity:** The middleware calls Clerk's `getAuth(req)` (session cookie or Bearer token) rather than parsing headers by hand.
+3. **Verify with Clerk:** `clerkMiddleware()` on the app plus `getAuth(req)` validates the session; `@clerk/backend` is not used directly.
+4. **Attach user context:** On success, the middleware loads the MongoDB `User` by `clerkId` and sets `req.user`.
+5. **Sync to DB:** No lazy sync — users are only created/updated by the Clerk webhook. A Clerk user missing from MongoDB gets a `404`.
+6. **Reject if missing:** No `userId` on the request returns `401 Unauthorized`.
 
 **Learning point:** The middleware acts as a gatekeeper—every protected route must pass through token verification before accessing resources.
 
 ### 3. Socket.IO Authentication (Planned)
+
+> **Status:** not implemented. `backend/src/lib/socket.ts` currently reads `socket.handshake.query.userId` without verification. Tracked as the highest-priority item in [`BUGS.md`](../BUGS.md). The flow below is the target design.
 
 WebSocket connections must also be authenticated (cannot rely solely on REST cookies in all cases).
 
@@ -80,7 +82,9 @@ We need to keep MongoDB `User` documents in sync with Clerk user data. Two commo
 
 Webhooks allow Clerk to notify our backend when user lifecycle events occur. This is essential for maintaining consistency between Clerk and our DB.
 
-### Events to Handle (Planned)
+### Events to Handle
+
+Handled in `backend/src/webhooks/clerk.webhook.ts`:
 
 | Event | When | Action |
 |---|---|---|
@@ -88,13 +92,13 @@ Webhooks allow Clerk to notify our backend when user lifecycle events occur. Thi
 | **`user.updated`** | User updates profile in Clerk (name/email/avatar) | Update corresponding DB user fields (keep app-specific fields like `online`, `lastSeen`, `themePrefs` intact). |
 | **`user.deleted`** | User is deleted in Clerk | Optionally soft-delete or remove the DB user. Consider impact on conversations/messages (data retention). For learning, handle gracefully (e.g., anonymize or prevent breaking refs). |
 
-### Webhook Endpoint Structure (Planned)
+### Webhook Endpoint Structure
 
-- **Route:** `POST /api/webhooks/clerk` (or `/webhooks/clerk`)
+- **Route:** `POST /api/webhooks/clerk`
 - **Purpose:** Receives raw JSON payload + `svix-signature` headers from Clerk.
-- **Verification:** Use `svix` library to verify the webhook signature using `CLERK_WEBHOOK_SIGNING_SECRET`. Reject with `401` if invalid.
+- **Verification:** `verifyWebhook` from `@clerk/backend/webhooks` verifies the signature using `CLERK_WEBHOOK_SIGNING_SECRET`. Invalid signatures get `400`; an unset secret gets `503`.
 - **Handler:** Parse event type and payload, perform DB operations.
-- **Idempotency consideration:** Webhooks can be retried—design handlers to be safe if called multiple times (check existing records).
+- **Idempotency consideration:** Webhooks can be retried—design handlers to be safe if called multiple times (the handler upserts/deletes by `clerkId`).
 - **Explain in code:** Add clear comments explaining what webhooks are, why we verify signatures, and the event flow.
 
 See [`WEBHOOKS_CRON.md`](./WEBHOOKS_CRON.md) for a deeper conceptual explanation (security, testing with ngrok, localtunnel, etc.).
@@ -103,7 +107,7 @@ See [`WEBHOOKS_CRON.md`](./WEBHOOKS_CRON.md) for a deeper conceptual explanation
 
 ## Protected Routes
 
-Protected routes require a valid Clerk token. Examples of planned protected routes:
+Protected routes require a valid Clerk token. All of these are implemented:
 
 | Method | Route | Purpose | Notes |
 |---|---|---|---|
@@ -122,7 +126,7 @@ Protected routes require a valid Clerk token. Examples of planned protected rout
 - **Token verification:** Always verify signatures, not just presence. Use Clerk's official libraries (`@clerk/backend`).
 - **HTTPS in production:** Webhooks and tokens require secure transport.
 - **Webhook signature verification:** Critical—never trust unverified webhook payloads.
-- **CORS:** Restrict allowed origins to `CLIENT_URL` only (frontend).
+- **CORS:** Restrict allowed origins to `FRONTEND_URL` only (the frontend origin).
 - **Minimal exposure:** Keep secrets (`CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`) on backend only. Use `VITE_*` only for publishable key.
 - **Token expiration:** Clerk tokens expire; clients must refresh. This is handled by Clerk SDK.
 - **Socket auth on every connection:** Don't rely on "one-time" auth; verify on connect and consider re-auth if needed.
@@ -133,16 +137,16 @@ Protected routes require a valid Clerk token. Examples of planned protected rout
 
 See [`ENV.md`](./ENV.md) for full list. Key auth-related vars:
 
-- **Backend:** `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`, `CLIENT_URL`
+- **Backend:** `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`, `FRONTEND_URL`
 - **Frontend:** `VITE_CLERK_PUBLISHABLE_KEY`, `VITE_API_URL`
 
 ---
 
 ## Implementation Notes
 
-- **Auth middleware:** Create `auth.middleware.ts` (or `.js`) with clear comments explaining token extraction, verification, and attaching user context.
+- **Auth middleware:** `backend/src/middlewares/auth.middleware.ts` resolves `getAuth(req)`, loads the MongoDB `User` by `clerkId`, and sets the optional `req.user`.
 - **Error handling:** Return appropriate status codes (401 for unauth, 403 for forbidden). See [`MIDDLEWARE.md`](./MIDDLEWARE.md) for error middleware.
-- **TypeScript types:** Augment Express Request type to include `auth`/`user` for type safety.
+- **TypeScript types:** `backend/src/types/express.d.ts` augments `Express.Request` with an **optional** `user`, so every handler must guard it.
 - **Testing locally:** Use Clerk's test keys or development instance. For webhooks, use tools like [ngrok](https://ngrok.com/) or [localtunnel](https://theboroer.github.io/localtunnel-www/) to expose local server to Clerk.
 
 ---
@@ -158,4 +162,4 @@ See [`ENV.md`](./ENV.md) for full list. Key auth-related vars:
 
 ---
 
-*Last updated: Initial auth design (Clerk + token verification + webhooks + sync strategy). Will evolve as implementation proceeds.*
+*Last updated: reflects the implemented Clerk REST authentication, user sync, and webhook flow. Socket authentication is still planned (see [BUGS.md](../BUGS.md)).*

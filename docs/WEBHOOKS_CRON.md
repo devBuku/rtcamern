@@ -6,6 +6,8 @@ This document explains **Webhooks** and **Cron Jobs** in the context of **rtcame
 
 ## 1. Webhooks
 
+> **Status:** implemented. `backend/src/webhooks/clerk.webhook.ts` verifies the Svix signature and upserts/deletes `User` documents. The rest of this section explains the design; where the implementation differs, the notes below call it out.
+
 ### What are Webhooks?
 
 A **webhook** is a way for an external service (like Clerk) to send real-time HTTP notifications to our backend when certain events happen, rather than us having to poll the API repeatedly. 
@@ -20,9 +22,9 @@ Think of it as "reverse API calls"—instead of our server asking "did anything 
 - **Decoupled:** External service doesn't need to know our internal logic except the endpoint URL.
 - **Learning value:** Demonstrates how third-party integrations communicate with our app.
 
-### Clerk Webhooks (Planned)
+### Clerk Webhooks
 
-Clerk uses webhooks to notify our app about user lifecycle events. This helps maintain consistency between Clerk (auth source of truth) and our local `User` model (app-specific data like presence, preferences).
+Clerk uses webhooks to notify our app about user lifecycle events. This helps maintain consistency between Clerk (auth source of truth) and our local `User` model (app-specific data like presence, preferences). This is implemented in `backend/src/webhooks/clerk.webhook.ts`.
 
 #### Events to Handle
 
@@ -39,9 +41,9 @@ Clerk uses webhooks to notify our app about user lifecycle events. This helps ma
 **Key requirements:**
 - **Public endpoint:** Must be accessible without auth middleware (Clerk calls it directly).
 - **Raw body:** Clerk signs requests using `svix`. Signature verification requires the **raw request body** (unparsed JSON). This means the global `express.json()` middleware must be skipped for this route.
-- **Signature verification:** Use [svix](https://github.com/svix/svix-libs) to verify headers: `svix-id`, `svix-timestamp`, `svix-signature` against `CLERK_WEBHOOK_SIGNING_SECRET`. Reject with `401 Unauthorized` if verification fails.
+- **Signature verification:** use `verifyWebhook` from `@clerk/backend/webhooks` (a hoisted transitive dependency of `@clerk/express`, not a direct one) to check the `svix-*` headers against `CLERK_WEBHOOK_SIGNING_SECRET`. Invalid signatures return `400`; an unset secret returns `503`.
 - **Idempotent handling:** Webhooks may be retried by Clerk. Handlers should be safe if the same event is delivered multiple times (e.g., check if user with `clerkId` already exists).
-- **Error handling:** Return appropriate status codes (200 for success, 400/401 for bad/unsigned requests).
+- **Error handling:** Return appropriate status codes (`200` on success, `400` on verification failure, `500` on processing failure, `503` when the secret is unset).
 
 #### Flow Diagram (Conceptual)
 
@@ -52,7 +54,7 @@ Express route (receives raw body)
   ↓ verify signature using CLERK_WEBHOOK_SIGNING_SECRET
 If valid: parse event type & data → perform DB operation (create/update/delete User)
   ↓ respond 200 OK
-If invalid: respond 401 Unauthorized
+If invalid: respond 400 Bad Request (503 if the signing secret is unset)
 ```
 
 #### Security Notes
@@ -79,7 +81,7 @@ Then configure the webhook URL in Clerk Dashboard: `https://your-tunnel-url/api/
 
 A **cron job** is a scheduled task that runs automatically at specified intervals (time-based). Cron uses a schedule expression (minute hour day-of-month month day-of-week) to define when tasks execute.
 
-In Node.js, we use [node-cron](https://github.com/node-cron/node-cron) to schedule and run jobs on our backend server.
+In Node.js, schedulers like `node-cron` and `cron` can run jobs on our backend server. This project uses the [`cron`](https://github.com/kelektiv/node-cron) package (plain `cron`, not `node-cron`).
 
 ### Why Use Cron Jobs?
 
@@ -88,9 +90,11 @@ In Node.js, we use [node-cron](https://github.com/node-cron/node-cron) to schedu
 - **Learning value:** Demonstrates background processing and scheduled work.
 - **Common in real apps:** Email reminders, data cleanup, report generation, etc.
 
-### Planned Cron Jobs for rtcamern
+### Cron Jobs in rtcamern
 
-Since this is a learning project, we'll implement **practical demo jobs** with clear explanations in code.
+> **Status:** implemented in `backend/src/lib/cron.ts`. One `CronJob` runs every 14 minutes and pings `FRONTEND_URL/health` to keep the free-tier instance awake; `job.start()` is called only when `NODE_ENV === "production"`.
+
+The job table below is a set of **example** jobs from the original design — none of them are implemented.
 
 | Job | Schedule (Example) | Purpose | Notes |
 |---|---|---|---|
@@ -100,21 +104,22 @@ Since this is a learning project, we'll implement **practical demo jobs** with c
 
 **Focus:** The main learning demo is likely **orphaned temp file cleanup**—ties directly to "file uploads from scratch" (disk storage scenario).
 
-### Cron Job Implementation (Planned)
+### Current Cron Implementation
 
-**Location:** `backend/src/cron/` directory
+**Location:** `backend/src/lib/cron.ts` (there is no `backend/src/cron/` directory).
 
-Suggested structure:
-```text
-backend/src/cron/
-├── index.ts        # Register and start all cron jobs
-├── cleanupTemp.ts  # Orphaned temp file cleanup
-└── inactiveUsers.ts # Mark inactive users (demo)
+```ts
+const job = new CronJob("*/14 * * * *", function () {
+  // GET FRONTEND_URL/health with node:http(s), 10s timeout, errors logged
+});
+
+// started from index.ts only in production
+if (NODE_ENV === "production") job.start();
 ```
 
-### Example: Cleanup Temp Files (Conceptual)
+### Example: Cleanup Temp Files (Conceptual, Not Implemented)
 
-If we ever use `multer.diskStorage()` (or save previews), temp files might accumulate. With `memoryStorage` it's less common, but demonstrating is valuable.
+If we ever use `multer.diskStorage()` (or save previews), temp files might accumulate. With `memoryStorage` it's less common, but demonstrating is valuable. (This sketch uses `node-cron`; the implemented health-ping job uses the `cron` package — see above.)
 
 ```ts
 import cron from "node-cron";
@@ -182,25 +187,24 @@ console.log("[CRON] Jobs registered");
 ## 4. Implementation Checklist
 
 ### Webhooks
-- [ ] Add `CLERK_WEBHOOK_SIGNING_SECRET` to `.env.example` and constants
-- [ ] Install `svix` package (`yarn add svix`)
-- [ ] Create webhook route/controller (`webhooks/clerk.controller.ts`)
-- [ ] Handle raw body for signature verification (middleware setup)
-- [ ] Verify svix signature
-- [ ] Handle `user.created`, `user.updated`, `user.deleted` events
-- [ ] Sync to MongoDB `User` model
-- [ ] Add detailed comments explaining webhooks, signature verification, idempotency
-- [ ] Register route in `index.ts` before `express.json()` for raw body handling
+- [x] Add `CLERK_WEBHOOK_SIGNING_SECRET` to `.env.example` and constants
+- [x] Install a signature verifier — done via `verifyWebhook` from `@clerk/backend/webhooks` (no direct `svix` dependency)
+- [x] Create webhook handler (`backend/src/webhooks/clerk.webhook.ts`, mounted directly in `index.ts`)
+- [x] Handle raw body for signature verification (`express.raw()` registered before `express.json()`)
+- [x] Verify the Svix signature
+- [x] Handle `user.created`, `user.updated`, `user.deleted` events
+- [x] Sync to MongoDB `User` model
+- [x] Add comments explaining webhooks, signature verification, idempotency
+- [x] Register route in `index.ts` before `express.json()` for raw body handling
 
 ### Cron Jobs
-- [ ] Install `node-cron` (`yarn add node-cron`) and types (`@types/node-cron`)
-- [ ] Create `backend/src/cron/` directory
-- [ ] Implement `cleanupTemp.ts` with explanatory comments (cron syntax, logic)
-- [ ] Implement `inactiveUsers.ts` as demo (optional but good)
-- [ ] Create `cron/index.ts` to register jobs
-- [ ] Import/start cron jobs in `index.ts` after DB connection
-- [ ] Add logging for visibility
-- [ ] Make jobs fail-safe (try-catch)
+- [x] Install the scheduler — the `cron` package is used, **not** `node-cron`
+- [x] Create the cron module (`backend/src/lib/cron.ts`, not `cron/index.ts`)
+- [x] Implement a job (`FRONTEND_URL/health` ping every 14 minutes)
+- [x] Start jobs from `index.ts` after DB connection, production only
+- [x] Add logging for visibility
+- [ ] Implement the cleanup/inactive-user demo jobs described above (not implemented)
+- [x] Make jobs fail-safe (request timeout + an `error` handler; errors are logged, not thrown)
 
 ---
 
@@ -227,4 +231,4 @@ console.log("[CRON] Jobs registered");
 
 ---
 
-*Last updated: Initial webhooks & cron jobs design with learning focus. Implementation will add concrete code with detailed explanations.*
+*Last updated: reflects the implemented Clerk webhook and keep-alive cron job; the example cleanup/inactive-user jobs remain design notes.*

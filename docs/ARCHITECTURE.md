@@ -40,10 +40,10 @@ Client (React + Vite)
 | **Authentication** | [Clerk](https://clerk.com/) | Auth Provider | Handles sign-in/sign-up, JWT tokens, and user management. Backend verifies tokens and syncs users to DB. |
 | **Media Storage** | [ImageKit](https://imagekit.io/) | Media Hosting & Transformations | Stores uploaded images/videos and provides on-the-fly transformations (thumbnails, optimizations). |
 | **File Uploads** | [Multer](https://github.com/expressjs/multer) | Multipart Form Handling | Implements file uploads from scratch with validation, size limits, and storage configuration. |
-| **Scheduled Tasks** | [node-cron](https://github.com/node-cron/node-cron) | Cron Jobs | For scheduled/background tasks (e.g., cleanup of orphaned temporary files). |
+| **Scheduled Tasks** | [cron](https://github.com/kelektiv/node-cron) | Cron Jobs | Pings `FRONTEND_URL/health` every 14 minutes in production to keep the free-tier instance awake. (`node-cron` is not installed.) |
 | **Environment** | [dotenv](https://github.com/motdotla/dotenv) | Environment Config | Manages environment variables securely. |
 
-> **Note:** Some packages (Socket.IO, Multer, ImageKit, Clerk, node-cron, Tailwind, Hero UI) are part of the planned feature set. The current codebase is in its early foundation stage and will evolve to include them.
+> **Note:** Socket.IO, Multer, ImageKit, and Clerk are installed and in use (Socket.IO only partially — see [`BUGS.md`](../BUGS.md)). Tailwind CSS and Hero UI are still planned and are not in any `package.json`; scheduling uses the `cron` package, not `node-cron`.
 
 ---
 
@@ -78,11 +78,11 @@ The data layer will consist of core models: **User**, **Conversation**, and **Me
 
 ### 4. Real-Time Layer (Socket.IO)
 
-A custom WebSocket server is implemented from scratch (no third-party realtime BaaS). Key responsibilities:
-- Authenticate socket connections using Clerk identity.
-- Manage rooms per conversation (`conversationId`) to ensure targeted message delivery.
-- Emit and broadcast events for messages, typing, online presence, and read receipts.
-- Track connected users for presence (online/offline status + lastSeen).
+A custom WebSocket server is implemented from scratch (no third-party realtime BaaS). The current state is partial: `backend/src/lib/socket.ts` wires Socket.IO to the HTTP server, keeps an in-memory `userSocketMap`, broadcasts presence, and emits `newMessage` to the receiver. Key responsibilities (some still planned):
+- Authenticate socket connections using Clerk identity. **Planned** — the handshake currently trusts a `userId` query parameter (see [`BUGS.md`](../BUGS.md)).
+- Manage rooms per conversation (`conversationId`) to ensure targeted message delivery. **Planned** — messages are currently emitted directly to the receiver's socket.
+- Emit and broadcast events for messages, typing, online presence, and read receipts. Messages and presence are wired; typing and read receipts are planned.
+- Track connected users for presence (online/offline status + lastSeen). Online users are in memory; `lastSeen` is planned.
 
 See [`SOCKETS.md`](./SOCKETS.md) for event contracts, payloads, and room management details.
 
@@ -100,7 +100,9 @@ See [`SOCKETS.md`](./SOCKETS.md) for event contracts, payloads, and room managem
 
 See [`AUTH.md`](./AUTH.md) for a detailed breakdown (including webhooks).
 
-### 2. Real-Time Messaging Flow
+### 2. Real-Time Messaging Flow (Target Design)
+
+The implemented path today is simpler: the message is persisted via `POST /api/messages/send/:id`, which then emits `newMessage` to the receiver's socket if they are online. The richer flow below is the goal in [`SOCKETS.md`](./SOCKETS.md).
 
 1. Authenticated user joins a conversation room via Socket.IO (`join_conversation`).
 2. User sends a message (`send_message`) via WebSocket (text and/or media reference).
@@ -127,7 +129,7 @@ See [`MEDIA.md`](./MEDIA.md) for the full explanation of "file uploads from scra
 - **Learning-First:** Prioritize clarity and understanding over premature optimization. Every major concept is documented and explained.
 - **Separation of Concerns:** Clear separation between client, server, routes, controllers, middleware, models, sockets, and utilities.
 - **Type Safety:** TypeScript is used on both frontend and backend to catch errors early and improve maintainability.
-- **Security Fundamentals:** Auth is enforced on protected routes and socket connections. File validation (type/size), CORS configuration, and input handling are considered core parts of the learning.
+- **Security Fundamentals:** Auth is enforced on protected REST routes (socket authentication is still planned — see [`BUGS.md`](../BUGS.md)). File validation (type/size), CORS configuration, and input handling are considered core parts of the learning.
 - **Custom Implementations:** Socket.IO server and file uploads are implemented from scratch to understand the underlying mechanics (as requested).
 - **Progressive Documentation:** Architecture evolves with the codebase. Diagrams and explanations are updated as features are added, never assumed.
 
@@ -165,4 +167,4 @@ The following Mermaid diagrams will be added as the implementation matures:
 
 ---
 
-*Last updated: Initial draft based on current project state. This document will be kept in sync with actual implementation.*
+*Last updated: reflects the implemented auth, messages, media, webhook, and cron layers; Socket.IO is partial (see [BUGS.md](../BUGS.md)).*

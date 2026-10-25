@@ -221,7 +221,7 @@ curl -X POST http://localhost:3000/api/messages/send/<userId> \
 - An invalid `:id` returns `400`.
 - Upload limits: 25 MB (`MAX_FILE_SIZE`) and an explicit image/video MIME allowlist. Oversized files return `413`; unsupported types return `400`.
 - Images are stored in `image`; videos in `video`.
-- Socket.IO broadcast is not implemented yet.
+- `sendMessage` emits a `newMessage` Socket.IO event to the receiver when they have an active socket. The socket handshake is **not authenticated** yet — see [`BUGS.md`](../BUGS.md).
 
 ---
 
@@ -292,7 +292,7 @@ The catch-all 404 also includes `"ok": false`. There is no `success`/`statusCode
 
 ## Notes on Evolution
 
-- **Socket.IO events** are documented separately in [`SOCKETS.md`](./SOCKETS.md). The REST API and Socket.IO work together (e.g., POST message persists via REST or socket—implementation choice will be clarified; typically messages are sent via socket for real-time, but REST may exist for history/uploads flow).
+- **Socket.IO events** are documented separately in [`SOCKETS.md`](./SOCKETS.md). Messages are sent and persisted through REST (`POST /api/messages/send/:id`), and the controller then emits `newMessage` over Socket.IO to the receiver if they are online. The fuller event contract in `SOCKETS.md` is still the target design — the current implementation is partial (see [`BUGS.md`](../BUGS.md)).
 - **Auth token refresh:** Handled by Clerk SDK on client; backend just verifies tokens.
 - **Rate limiting & security headers:** May be added later (helmet, express-rate-limit) as learning extras.
 - **Group chats:** If implemented, conversation endpoints will be extended to support `isGroup`, adding/removing members.
@@ -310,4 +310,4 @@ The catch-all 404 also includes `"ok": false`. There is no `success`/`statusCode
 
 ---
 
-*Last updated: Initial API structure with planned endpoints. Will be updated as routes/controllers are implemented.*
+*Last updated: reflects the implemented auth, messages, and Clerk webhook routes; real-time delivery over Socket.IO is partial (see [BUGS.md](../BUGS.md)).*

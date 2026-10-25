@@ -4,6 +4,8 @@ This document explains the custom **Socket.IO** WebSocket server for **rtcamern*
 
 The goal is to understand how real-time communication works from scratch (no Firebase/Supabase) and how events flow between client and server.
 
+> **Status:** partial implementation. `backend/src/lib/socket.ts` creates the Express app and HTTP server, tracks online users in an in-memory map, and `sendMessage` emits `newMessage` to the receiver. Authentication, rooms, typing indicators, and read receipts described below are the **target design**. Known issues are tracked in [`BUGS.md`](../BUGS.md).
+
 ---
 
 ## Overview
@@ -30,13 +32,15 @@ A "custom WebSocket server" means we're implementing Socket.IO ourselves from sc
 - See how REST + WebSocket layers interact in the same app.
 - Aligns with "Build Your Own WebSocket Server" highlight.
 
-The Socket.IO server will be initialized in the backend (e.g., `backend/src/socket/socket.server.ts` or integrated into `index.ts`), attached to the HTTP server.
+The Socket.IO server lives in `backend/src/lib/socket.ts`, which creates the Express `app` and HTTP `server` (imported by `backend/src/index.ts`) and attaches the Socket.IO server to it.
 
 ---
 
 ## Connection & Authentication
 
 All socket connections must be authenticated using Clerk identity. Unauthenticated connections are rejected.
+
+> **Current behavior:** not enforced yet — `socket.ts` trusts `socket.handshake.query.userId`. This is the highest-priority item in [`BUGS.md`](../BUGS.md).
 
 ### Client Connection (Planned)
 

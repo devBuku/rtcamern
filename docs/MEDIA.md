@@ -44,7 +44,7 @@ Multer is a standard middleware for handling `multipart/form-data`. It parses fi
 | **Where files go** | Stored in RAM as `Buffer` | Saved to local filesystem at specified `destination` |
 | **Pros** | No disk I/O, faster for direct cloud uploads; easy to stream/upload buffer to ImageKit. No temp file cleanup needed if uploaded immediately. | Files persist on disk; good if you need to process them locally or keep backups. |
 | **Cons** | Limited by available RAM; large uploads can consume memory. Not suitable for very large files without streaming. | Requires managing temp files (cleanup), disk space concerns. |
-| **Planned Choice** | **Memory storage** – upload buffer directly to ImageKit. This avoids writing temp files and is clean for this project. |
+| **Choice** | **Memory storage** – upload buffer directly to ImageKit. This avoids writing temp files and is clean for this project. |
 
 **Learning point:** Explain this choice in code comments.
 
@@ -52,7 +52,7 @@ Multer is a standard middleware for handling `multipart/form-data`. It parses fi
 
 We must validate file types on the server. Never trust `Content-Type` from client alone, but MIME type check is a good first line.
 
-**Planned allowed types:**
+**Allowed types:**
 
 | Category | MIME Types | Notes |
 |---|---|---|
@@ -70,12 +70,12 @@ We must validate file types on the server. Never trust `Content-Type` from clien
 
 Prevent abuse and resource exhaustion.
 
-| Item | Planned Limit | Rationale |
+| Item | Limit | Rationale |
 |---|---|---|
-| **Single file size** | e.g., `10MB` for images, `25–50MB` for videos | Balance UX with free-tier limits (ImageKit, hosting, RAM). Final value decided in implementation. |
-| **Multiple files** | e.g., max 5 files per upload request | Keep messages manageable. |
+| **Single file size** | `25 MB` (`MAX_FILE_SIZE` in `backend/src/constants/env.ts`) | Balance UX with free-tier limits (ImageKit, hosting, RAM). Oversized files return `413`. |
+| **Files per request** | `1` — routes call `upload.single("media")` | One media attachment per message. |
 
-These are enforced via `multer({ limits: { fileSize: 50 * 1024 * 1024, files: 5 } })`.
+These are enforced via `multer({ storage, fileFilter, limits: { fileSize: MAX_FILE_SIZE } })`.
 
 ### Multer Configuration
 

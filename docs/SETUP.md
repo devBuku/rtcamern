@@ -14,8 +14,8 @@ Before getting started, ensure you have the following installed and configured:
 | **[Yarn](https://yarnpkg.com/)** | v4+ (Berry) | Package manager | Both packages pin `yarn@4.18.1` via the `packageManager` field (run `corepack enable` once). |
 | **[MongoDB](https://www.mongodb.com/)** | 6.x+ or MongoDB Atlas | Database | You can use a local MongoDB instance (`mongodb://localhost:27017`) or [MongoDB Atlas](https://www.mongodb.com/atlas) (free tier). |
 | **[Git](https://git-scm.com/)** | Latest | Version control | To clone the repository. |
-| **[Clerk Account](https://clerk.com/)** | Free | Authentication | Required later for auth. Sign up for free and create an app. |
-| **[ImageKit Account](https://imagekit.io/)** | Free | Media hosting & transformations | Required later for media uploads. Free tier available. |
+| **[Clerk Account](https://clerk.com/)** | Free | Authentication | Required for auth. Sign up for free and create an app. |
+| **[ImageKit Account](https://imagekit.io/)** | Free | Media hosting & transformations | Required for media uploads. Free tier available. |
 
 ---
 

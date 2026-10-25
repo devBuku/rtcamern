@@ -10,7 +10,7 @@ The goal is to understand *what* each middleware does, *why* it's needed, and *t
 
 In Express, middleware are functions that execute during the request-response lifecycle. Each middleware has access to `req`, `res`, and `next()`.
 
-For this project, three core middleware are planned:
+For this project, three core middleware are implemented:
 
 1. **Auth Middleware** – Verifies Clerk JWT tokens and attaches authenticated user context.
 2. **Upload Middleware** – Handles multipart file uploads using Multer (from scratch implementation).
@@ -18,16 +18,16 @@ For this project, three core middleware are planned:
 
 ---
 
-## 1. Auth Middleware (Planned)
+## 1. Auth Middleware
 
 The auth middleware protects routes by ensuring only authenticated users can access them. It verifies the Clerk-issued JWT and attaches the authenticated user's identity to the request object.
 
 ### Purpose
 
 - Prevent unauthenticated access to protected endpoints (conversations, messages, uploads, etc.).
-- Extract and verify the Bearer token from the `Authorization` header.
-- Attach `req.auth` (or `req.user`) containing `clerkId`, user info, etc. for downstream controllers.
-- Optionally sync Clerk user to MongoDB `User` model (lazy sync) for app-specific data.
+- Resolve the Clerk identity from the request (`getAuth(req)`, e.g. session cookie or Bearer token).
+- Attach `req.user` containing the MongoDB user for downstream controllers.
+- Load (not create) the MongoDB `User` by `clerkId`; creation is webhook-only.
 
 ### Expected Location
 
@@ -35,12 +35,12 @@ The auth middleware protects routes by ensuring only authenticated users can acc
 
 ### Flow
 
-1. **Extract token:** Read `Authorization: Bearer <token>` header. If missing, call `next()` with an `Unauthorized` error.
-2. **Verify token:** Use `@clerk/backend` to verify the JWT (or validate via JWKS). Check signature, issuer, expiration.
-3. **Attach context:** On success, attach `clerkId` and maybe `userId` to request (e.g., `req.auth = { clerkId: ... }`).
-4. **Sync user (lazy):** Find or create MongoDB user by `clerkId`. Attach DB user to `req.user` if needed.
-5. **Pass to next:** Call `next()` to continue to route handler.
-6. **Handle errors:** On verification failure, pass `401 Unauthorized` to error middleware.
+1. **Resolve identity:** Call `getAuth(req)`; Clerk's middleware has already validated the session cookie or Bearer token.
+2. **Reject anonymous:** With no `userId`, respond `401 { message: "Unauthorized" }`.
+3. **Load the app user:** `User.findOne({ clerkId: userId }).select("-__v")`.
+4. **Reject unsynced users:** If no document exists, respond `404` — sync is webhook-only, there is no lazy create.
+5. **Attach context:** Set `req.user` to the MongoDB document.
+6. **Pass to next:** Call `next()`; unexpected errors respond `500`.
 
 ### Learning Points
 
@@ -52,15 +52,17 @@ The auth middleware protects routes by ensuring only authenticated users can acc
 ### Example Structure (Conceptual)
 
 ```ts
-// Extract token, verify with Clerk, attach context, call next()
-// On error, next(new UnauthorizedError())
+// Resolve the Clerk identity, load the MongoDB user,
+// attach it as req.user (optional), then call next()
 ```
 
-*(Actual implementation will be hand-written. This is the intended structure.)*
+### Current Behavior
+
+The implementation matches the flow above (no custom error classes, no lazy sync). It is applied to every route via `router.use(authMiddleware)` in `backend/src/routes/auth.route.ts` and `backend/src/routes/message.route.ts`. Because `req.user` is typed optional, handlers must guard it.
 
 ---
 
-## 2. Upload Middleware (Planned)
+## 2. Upload Middleware
 
 The upload middleware handles multipart/form-data for file uploads. It's implemented using [Multer](https://github.com/expressjs/multer) from scratch—meaning we configure storage, validation, and limits ourselves to understand the internals.
 
@@ -80,10 +82,10 @@ The upload middleware handles multipart/form-data for file uploads. It's impleme
 
 | Concept | Explanation |
 |---|---|
-| **Memory Storage vs Disk Storage** | `multer.memoryStorage()` keeps files in RAM (good for uploading directly to ImageKit/cloud without writing to disk). `diskStorage()` saves to local filesystem (useful for temp storage, but needs cleanup). We'll choose and explain the rationale. |
+| **Memory Storage vs Disk Storage** | `multer.memoryStorage()` keeps files in RAM (good for uploading directly to ImageKit/cloud without writing to disk). `diskStorage()` saves to local filesystem (useful for temp storage, but needs cleanup). This project uses memory storage. |
 | **File Filter** | Custom filter function checks `file.mimetype` (e.g., `image/jpeg`, `image/png`, `video/mp4`, `video/webm`) to allow only safe image/video types. Reject others with clear errors. |
 | **Limits** | `limits.fileSize` (bytes) to prevent large uploads. Also can limit `files` count. Explain tradeoffs (UX vs server/resources). |
-| **Single vs Multiple Files** | `upload.single('file')` for one file, `upload.array('files', N)` for multiple. Start simple (single upload) and explain. |
+| **Single vs Multiple Files** | `upload.single('media')` for one file, `upload.array('files', N)` for multiple. This project accepts one media file per message. |
 | **Error Handling** | Multer throws specific errors (`LIMIT_FILE_SIZE`, `LIMIT_UNEXPECTED_FILE`, etc.). These should be caught and passed to error middleware with user-friendly messages. |
 
 ### Learning Points
@@ -112,7 +114,9 @@ export const upload = multer({ storage, fileFilter, limits: { fileSize: MAX_FILE
 // Routes call: upload.single("media")
 ```
 
-*(Implementation will reflect actual choices and include detailed comments.)*
+### Current Behavior
+
+`backend/src/middlewares/upload.middleware.ts` exports `upload` using `multer.memoryStorage()` with `MAX_FILE_SIZE` (25 MB) and an explicit image/video MIME allowlist in `fileFilter`. Rejected types attach `{ status: BAD_REQUEST }` so they surface as `400`. Routes call `upload.single("media")` (only `POST /api/messages/send/:id`). See [`MEDIA.md`](./MEDIA.md).
 
 ---
 
@@ -123,7 +127,7 @@ The error middleware is the **last** middleware in the stack. It catches errors 
 ### Purpose
 
 - Centralized error handling (DRY principle).
-- Return predictable JSON error responses: `{ success: false, message, statusCode, ... }`
+- Return predictable JSON error responses: `{ message }` (the catch-all 404 also adds `ok: false`).
 - Distinguish between operational errors (expected, like "unauthorized") vs programming errors (bugs).
 - Provide appropriate status codes and messages.
 - Log errors in development for debugging (without leaking sensitive details in production).
@@ -181,23 +185,25 @@ export function errorHandler(err, _req, res, _next) {
 
 ## Middleware Order (Execution Flow)
 
-The order in which middleware are registered is **extremely important** in Express. Here's the planned order for the backend app:
+The order in which middleware are registered is **extremely important** in Express. This is the actual registration order in `backend/src/index.ts`:
 
 ```text
-1. Express JSON parser (express.json()) – Parse JSON bodies
-2. CORS middleware – Handle cross-origin requests (configure CLIENT_URL)
-3. Request logging (optional, for learning/debugging)
-4. Routes
-   ├─ Public routes (e.g., /health, /api/webhooks/clerk) – may skip auth
-   └─ Protected routes – require Auth Middleware
-      └─ Routes with file uploads – also use Upload Middleware
-5. Error Middleware (last) – Catch all errors
+1. Clerk webhook with express.raw() – signature verification needs the raw body
+2. express.json() – parse JSON bodies (after the webhook route)
+3. CORS – allowed origin is FRONTEND_URL
+4. clerkMiddleware() – attaches Clerk auth state to req
+5. Routes
+   ├─ Public: /health, /api/webhooks/clerk
+   └─ Protected: /api/auth, /api/messages (router-level authMiddleware;
+      message sends also run upload.single("media"))
+6. SPA static serving + JSON 404 for unmatched /api/* paths
+7. errorHandler (last) – maps Multer/status errors, catches everything else
 ```
 
-### Example Registration Order (Conceptual)
+### Registration Order
 
 ```ts
-app.use('/api/webhooks/clerk', express.raw({ type: 'application/json' }), webhookRouter); // before express.json()
+app.use('/api/webhooks/clerk', express.raw({ type: 'application/json' }), clerkWebhook); // before express.json()
 app.use(express.json());
 app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 app.use(clerkMiddleware());
@@ -208,7 +214,7 @@ app.use('/api/messages', messageRouter); // messageRouter applies authMiddleware
 app.use(errorHandler); // must be last, 4 args
 ```
 
-**Learning point:** Webhooks often require the **raw body** (not parsed JSON) for signature verification. We'll handle that carefully when implementing Clerk webhooks (separating webhook route from global `express.json()` if needed).
+**Learning point:** Webhooks often require the **raw body** (not parsed JSON) for signature verification. The Clerk webhook is registered before `express.json()` for exactly that reason. A final 4-arg error handler is also required — without it Multer failures fall through to Express's default HTML 500 page.
 
 ---
 
@@ -233,4 +239,4 @@ app.use(errorHandler); // must be last, 4 args
 
 ---
 
-*Last updated: Initial middleware design. Implementation details will be added as code is written.*
+*Last updated: reflects the implemented auth, upload, and error middleware and the real registration order in `backend/src/index.ts`.*

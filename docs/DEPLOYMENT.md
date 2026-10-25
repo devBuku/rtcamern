@@ -226,9 +226,9 @@ See the [README](../README.md#docker-single-container) for details.
 - [ ] Backend has `build` and `start` scripts
 - [ ] Frontend builds successfully locally (`yarn build`)
 - [ ] Backend builds successfully locally (`yarn build` then `yarn start`)
-- [ ] CORS configured with correct CLIENT_URL
+- [ ] CORS configured with correct FRONTEND_URL
 - [ ] Socket.IO URL points to backend
-- [ ] Webhook endpoint configured in Clerk (if ready)
+- [ ] Webhook endpoint configured in Clerk
 
 ### Deploy Database
 - [ ] MongoDB Atlas cluster created
@@ -264,7 +264,7 @@ See the [README](../README.md#docker-single-container) for details.
 
 | Issue | Cause | Solution |
 |---|---|---|
-| **CORS errors** | CLIENT_URL mismatch or not whitelisted | Ensure backend CORS includes exact frontend URL (no trailing slash). Check env var. |
+| **CORS errors** | FRONTEND_URL mismatch or not whitelisted | Ensure backend CORS includes exact frontend URL (no trailing slash). Check env var. |
 | **Socket.IO fails to connect** | Wrong `VITE_SOCKET_URL` or backend not running | Use backend URL. Check backend logs. Ensure Socket.IO attached to HTTP server. |
 | **MongoDB connection fails** | IP not allowed or wrong password/URI | Check Network Access in Atlas. URL-encode special chars in password. Verify MONGO_URI. |
 | **502/503 on backend** | App crashed or sleeping (Render free tier) | Check Render/Railway logs. Ensure `start` script works. Fix errors, redeploy. Cold start is normal on free tier. |

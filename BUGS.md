@@ -2,7 +2,7 @@
 
 Known issues in the current Socket.IO work. They are intentionally deferred so the rest of the project can be completed first. Re-check line numbers after further edits.
 
-Scope: uncommitted Socket.IO changes in `backend/src/lib/socket.ts`, `backend/src/index.ts`, and `backend/src/controllers/message.controller.ts`.
+Scope: the Socket.IO implementation in `backend/src/lib/socket.ts`, `backend/src/index.ts`, and `backend/src/controllers/message.controller.ts`.
 
 ---
 
@@ -12,7 +12,6 @@ Scope: uncommitted Socket.IO changes in `backend/src/lib/socket.ts`, `backend/sr
 - [ ] **Medium** — One socket per user, and disconnect deletes the wrong mapping
 - [ ] **Low** — Presence is broadcast to unauthenticated sockets
 - [ ] **Low** — `socket.ts` owns the Express app and HTTP server
-- [ ] **Minor** — Unused `Express` import
 
 When a fix lands, tick the box and move the entry to the **Fixed** section at the bottom.
 
@@ -66,15 +65,6 @@ The server maps `socket.handshake.query.userId` to a socket without verifying Cl
 
 ---
 
-## Minor — Unused `Express` import
-
-**Status:** Open
-**File:** `backend/src/index.ts:6`
-
-`Express` is no longer used after `const app: Express` was removed. The build passes, so this is cleanup only.
-
----
-
 ## Fixed
 
-_(none yet)_
+- **Unused `Express` import** (`backend/src/index.ts`) — removed when `index.ts` switched to importing `app`/`server` from `lib/socket.ts`. (Commit `1f07cad`)

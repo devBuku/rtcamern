@@ -50,6 +50,8 @@ The User model represents an authenticated user in the application. Users are au
 
 ### 2. Conversation Model
 
+> **Status:** design target only — there is no `Conversation` collection or model file yet. Conversations are currently derived from `Message` records.
+
 A Conversation represents a chat between one or more participants. Initially, **1:1 conversations** are the focus. The model is designed to be extensible for group chats if needed later.
 
 #### Fields
@@ -72,7 +74,7 @@ A Conversation represents a chat between one or more participants. Initially, **
 - **`lastMessage` + `lastMessageAt`:** Denormalization for performance. Avoids aggregating to get the latest message when listing conversations (common in chat UIs).
 - **`unreadCounts`:** Tracks per-user unread state. Essential for real-world chat UX. Updated on message send/read events.
 - **1:1-first with extensibility:** `isGroup` flag keeps model flexible without over-engineering for the initial scope (matches "1:1 only" as a safe starting point, extensible to groups).
-- **Rooming by conversation:** Conversations map 1:1 to Socket.IO rooms (`conversationId`), isolating message broadcasts.
+- **Rooming by conversation (future):** once the Conversation model exists, each conversation would map 1:1 to a Socket.IO room (`conversationId`) to isolate message broadcasts. Today there are no rooms; `newMessage` is emitted to the receiver's socket ID.
 
 #### Indexes (Planned)
 
