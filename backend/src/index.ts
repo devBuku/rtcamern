@@ -3,7 +3,7 @@ import express from "express";
 import cors from "cors";
 import fs from "fs";
 import path from "path";
-import { Express, Request, Response } from "express";
+import { Request, Response } from "express";
 import { clerkMiddleware } from "@clerk/express";
 import { FRONTEND_URL, NODE_ENV, PORT } from "./constants/env";
 import { NOT_FOUND, OK } from "./constants/http-status";
@@ -13,8 +13,8 @@ import clerkWebhook from "./webhooks/clerk.webhook";
 import authRouter from "./routes/auth.route";
 import messageRouter from "./routes/message.route";
 import { errorHandler } from "./middlewares/error.middleware";
+import { app, server } from "./lib/socket";
 
-const app: Express = express();
 // Frontend build is copied to /app/public at image build time. Resolve it
 // relative to the compiled file (dist/index.js -> ../public) so serving does
 // not depend on the process working directory.
@@ -72,7 +72,7 @@ app.use(errorHandler);
 (async function () {
   try {
     await connectToDb();
-    app.listen(PORT, function () {
+    server.listen(PORT, function () {
       console.log(`Server is listening on port: ${PORT}`);
     });
     if (NODE_ENV === "production") job.start();

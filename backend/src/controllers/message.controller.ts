@@ -10,6 +10,7 @@ import {
 import User from "../models/user.model";
 import Message from "../models/message.model";
 import uploadChatMedia from "../lib/imagekit";
+import { getReceiverSocketId, io } from "../lib/socket";
 
 const getUsersForSidebar = async function (req: Request, res: Response) {
   try {
@@ -165,6 +166,11 @@ const sendMessage = async function (req: Request, res: Response) {
       video: videoUrl,
     });
     await newMessage.save();
+    const receiverSocketId = getReceiverSocketId(receiverId as string);
+    // only send the message in realtime if user is online
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("newMessage", newMessage);
+    }
     res.status(CREATED).json(newMessage);
   } catch (error) {
     console.error("Error in sendMessage:", error);
