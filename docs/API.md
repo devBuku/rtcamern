@@ -1,15 +1,15 @@
 # API Reference
 
-This document will serve as the REST API reference for **rtcamern**. It lists all endpoints, HTTP methods, auth requirements, request/response examples, and purpose.
+This document is the REST API reference for **rtcamern**. It lists endpoints, HTTP methods, auth requirements, request/response examples, and purpose.
 
-As endpoints are implemented (auth, conversations, messages, uploads, webhooks), they'll be documented here with clarity and learning notes.
+Endpoints are documented as they are implemented; anything still only designed is labeled as such.
 
 ---
 
 ## Base URL
 
 - **Development:** `http://localhost:3000`
-- **Production:** `<backend-deployed-url>` (e.g., Railway/Render)
+- **Production:** your deployed app URL (e.g., `https://rtcamern.onrender.com`) — the API and SPA share one origin
 
 All API routes are prefixed under `/api` unless stated otherwise (e.g., `/health`, `/api/webhooks/clerk`).
 
@@ -17,13 +17,13 @@ All API routes are prefixed under `/api` unless stated otherwise (e.g., `/health
 
 ## Authentication
 
-Most endpoints require authentication via Clerk JWT. Send the token in the `Authorization` header:
+Most endpoints require a Clerk session. `authMiddleware` calls `getAuth(req)`, which resolves either the Clerk session cookie or an `Authorization: Bearer <token>` header, so sending the request with credentials is sufficient:
 
 ```http
 Authorization: Bearer <clerk-jwt-token>
 ```
 
-Protected routes use the **Auth Middleware** (see [`MIDDLEWARE.md`](./MIDDLEWARE.md)). Requests without a valid token return `401 Unauthorized`.
+Protected routes use the **Auth Middleware** (see [`MIDDLEWARE.md`](./MIDDLEWARE.md)). Requests without a valid session return `401 Unauthorized`; a signed-in Clerk user missing from MongoDB returns `404`.
 
 Some routes (like health check and webhooks) are public and do not require auth.
 

@@ -49,7 +49,7 @@ This document covers common issues you might encounter while developing **rtcame
 | **Blank page after start** | Build/runtime error | Open browser console for errors. Check for missing imports, invalid JSX/TS. |
 | **HMR not working** | File watcher issues (WSL, network) | Restart dev server. Check Vite config for server options. |
 | **Environment variables undefined** | Missing `VITE_` prefix | Vite only exposes vars prefixed `VITE_*`. Rename in `.env`. Restart dev server after changes. See [`ENV.md`](./ENV.md). |
-| **Styles not applying** | Tailwind/Hero UI config issue | Check `index.css`, `tailwind.config.*`, Hero UI provider setup. Ensure CSS imported. |
+| **Styles not applying** | Missing CSS import | The app uses plain CSS (`index.css`, `App.css`). Tailwind/Hero UI are not installed yet — don't look for `tailwind.config.*`. |
 
 ---
 
@@ -69,12 +69,13 @@ This document covers common issues you might encounter while developing **rtcame
 
 | Issue | Cause | Solution |
 |---|---|---|
-| **Connection refused (ERR_CONNECTION_REFUSED)** | Backend not running or wrong URL | Ensure backend is running on correct port. Check `VITE_SOCKET_URL`. |
-| **connect_error / Unauthorized** | Token missing/invalid on socket auth | Ensure client sends token in `auth: { token }`. Verify token with Clerk on server (`io.use()`). Check Clerk keys. See [`SOCKETS.md`](./SOCKETS.md), [`AUTH.md`](./AUTH.md). |
-| **Events not received** | Not joined to room or wrong event name | Check room join (`conversation:join`). Verify event names match exactly (case-sensitive). Use acknowledgements to debug. |
+| **Connection refused (ERR_CONNECTION_REFUSED)** | Backend not running or wrong port | Ensure the backend is running on the expected port. In the monolith the client connects to the same origin; locally that is `http://localhost:3000`. |
+| **Messages not arriving in real time** | Only one socket per user, or the receiver is offline | `userSocketMap` is `Record<userId, socketId>`, so a second tab overwrites the first. The emit only happens when the receiver has a socket. Tracked in [`BUGS.md`](../BUGS.md). |
+| **Anyone can subscribe to another user's messages** | Socket handshake trusts `?userId=` | Not fixed yet — the highest-priority item in [`BUGS.md`](../BUGS.md). |
+| **Events not received** | Wrong event name | Current events are `getOnlineUsers` and `newMessage` (case-sensitive). Rooms are not implemented. |
 | **Messages sent twice** | Multiple event listeners attached | Remove listeners on cleanup (`socket.off()`/`useEffect` cleanup). Check useEffect deps. |
-| **CORS with Socket.IO** | Socket.IO cors config missing | Configure `new Server(httpServer, { cors: { origin: FRONTEND_URL, credentials: true } })`. Match REST CORS. |
-| **Rooms not working** | User not participant or wrong room name | Validate participant in DB before `socket.join()`. Use consistent room naming (e.g., `conversation:<id>`). |
+| **CORS with Socket.IO** | Server CORS origin mismatch | The server allows `FRONTEND_URL` only. In the monolith, requests are same-origin. |
+| **Rooms not working** | Rooms are not implemented | `conversation:join/leave` is target design, not code. See [`SOCKETS.md`](./SOCKETS.md). |
 
 ---
 
@@ -82,12 +83,12 @@ This document covers common issues you might encounter while developing **rtcame
 
 | Issue | Cause | Solution |
 |---|---|---|
-| **ClerkProvider missing** | Not wrapped at root | Wrap app in `<ClerkProvider publishableKey={...}>` in `main.tsx`/`App.tsx`. |
+| **ClerkProvider missing** | Not wrapped at root | `frontend/src/main.tsx` wraps the app in `<ClerkProvider>`; the publishable key comes from `VITE_CLERK_PUBLISHABLE_KEY`. |
 | **Invalid publishable key** | Wrong key or env not loaded | Check `VITE_CLERK_PUBLISHABLE_KEY`. Restart frontend after env change. |
-| **401 on protected API calls** | Missing Bearer token | Use `getToken()` from Clerk and attach `Authorization: Bearer <token>`. |
-| **Token verification fails on backend** | Wrong `CLERK_SECRET_KEY` or token format | Verify secret key. Ensure using `@clerk/backend` to verify. Check token is fresh. |
-| **Redirect issues after login** | Wrong redirect URLs in Clerk | Add frontend URL to allowed redirect/origin in Clerk Dashboard. |
-| **User not synced to DB** | Lazy sync not working or webhook failing | Check auth middleware for findOrCreate. Test `/api/auth/me`. For webhooks, see webhook section. |
+| **401 on protected API calls** | No Clerk session | `authMiddleware` calls `getAuth(req)`, which reads the Clerk session cookie or a Bearer token. Send the request with credentials (`credentials: "include"` if cross-origin). |
+| **Token verification fails on backend** | Wrong `CLERK_SECRET_KEY` | Verify the secret key is set for the running process. Verification is done by `clerkMiddleware()` + `getAuth(req)` from `@clerk/express` — not `jsonwebtoken`. |
+| **Redirect issues after login** | Wrong redirect URLs in Clerk | Add the app URL to allowed redirect/origin in Clerk Dashboard. |
+| **User not synced to DB** | Webhook missing or failing | There is **no lazy sync**: the user is only created by the Clerk webhook (`/api/webhooks/clerk`). Check the webhook delivery in Clerk; `POST /api/auth/me` returns `404` until the user exists. See [`AUTH.md`](./AUTH.md). |
 
 ---
 
@@ -110,10 +111,11 @@ This document covers common issues you might encounter while developing **rtcame
 
 | Issue | Cause | Solution |
 |---|---|---|
-| **Webhook returns 401 (signature verification failed)** | Wrong `CLERK_WEBHOOK_SIGNING_SECRET` or missing raw body | Verify signing secret matches Clerk. Ensure route gets raw body before `express.json()`. Use `express.raw({ type: 'application/json' })` for webhook route only. |
-| **Webhook not receiving events (local)** | Local server not exposed | Use ngrok/localtunnel: `ngrok http 3000`. Update webhook URL in Clerk to public tunnel URL. |
-| **Webhook returns 500** | Handler error (DB, validation) | Check backend logs. Add try-catch in webhook controller. Make handler idempotent. |
-| **Duplicate user creation** | Idempotency not handled | Check if user exists by `clerkId` before creating. Use `findOneAndUpdate` with upsert carefully. |
+| **Webhook returns 400 (signature verification failed)** | Wrong `CLERK_WEBHOOK_SIGNING_SECRET` or missing raw body | Verify the signing secret matches Clerk. The route is registered with `express.raw({ type: "application/json" })` **before** `express.json()`; don't move it. |
+| **Webhook returns 503** | `CLERK_WEBHOOK_SIGNING_SECRET` is unset | Set the variable and redeploy. |
+| **Webhook not receiving events (local)** | Local server not exposed | Use ngrok/localtunnel: `ngrok http 3000`. Update the webhook URL in Clerk to the public tunnel URL. |
+| **Webhook returns 500** | Handler error (DB, validation) | Check backend logs. The handler upserts/deletes by `clerkId`; failures are logged and returned as 500. |
+| **Duplicate user creation** | Idempotency issue | The handler upserts by `clerkId`; `clerkId` and `email` are unique in the schema, so duplicates should fail rather than multiply. |
 | **Events missing** | Not subscribed in Clerk Dashboard | Go to Clerk Webhooks → Edit → Select events: `user.created`, `user.updated`, `user.deleted`. |
 
 ---
@@ -122,15 +124,15 @@ This document covers common issues you might encounter while developing **rtcame
 
 | Issue | Cause | Solution |
 |---|---|---|
-| **Build fails (backend)** | TypeScript errors or missing deps | Run `yarn build` locally first. Fix errors. Ensure all deps in `dependencies` (not devDeps if needed at runtime). Check `tsconfig.json` outDir. |
-| **Build fails (frontend)** | Vite/TS errors or missing VITE_* | `yarn build` locally. Add missing env vars in Netlify/Vercel. Check import paths. |
-| **Backend returns 502/503** | App crashed on start or sleeping | Check platform logs (Render/Railway). Ensure `start` script runs `node dist/index.js` and build succeeded. Cold start on free tier is normal. |
-| **Health endpoint 404** | Route not registered or wrong base URL | Hit `https://your-backend-url/health`. Ensure `app.get('/health', ...)` registered before other middleware? Should work. Check logs. (Status uses `NOT_FOUND`/`OK` from HTTP status constants.) |
-| **CORS in production** | FRONTEND_URL wrong or trailing slash | Use exact frontend URL (e.g., `https://app.netlify.app` without `/`). Update backend env and redeploy. |
-| **Socket.IO can't connect in prod** | Using `http://` or wrong URL | Use `https://` for backend URL (Render/Railway provide https). Set `VITE_SOCKET_URL=https://...`. |
-| **MongoDB Atlas connection times out** | Network Access not allowing | Add `0.0.0.0/0` to Atlas Network Access (for free tier learning) or platform IPs. Redeploy backend. |
-| **Clerk auth fails in prod** | Using dev keys or wrong origins | Use production Clerk keys. Add prod frontend URL to Clerk allowed origins. |
-| **Images not loading (ImageKit)** | URL endpoint or CORS | Check `IMAGEKIT_URL_ENDPOINT`. ImageKit serves via https. Ensure URLs are correct. |
+| **Build fails (backend)** | TypeScript errors or missing deps | Run `yarn build` locally first. Fix errors. Ensure runtime deps are in `dependencies` (the Docker runner installs production deps only). Check `tsconfig.json` outDir. |
+| **Build fails (frontend / Docker)** | Vite/TS errors or missing build arg | Run `yarn build` in `frontend/`. Ensure `VITE_CLERK_PUBLISHABLE_KEY` is passed as a Docker build arg (Vite inlines it at build time). |
+| **Backend returns 502/503** | App crashed on start or sleeping | Check Render logs. Missing `MONGO_URI` (production) or any ImageKit var crashes the process at import time. Cold start on free tier is normal. |
+| **Health endpoint 404** | Wrong base URL or route shadowed | Hit `https://your-app-url/health`. It is registered before the SPA catch-all and returns `{ ok: true }`. |
+| **CORS in production** | `FRONTEND_URL` wrong or trailing slash | In the monolith this should be the app's own URL. Use it without a trailing slash. |
+| **Socket.IO can't connect in prod** | Wrong origin or backend not running | Use `https://` and the same origin as the app (monolith). Check logs; Socket.IO shares the HTTP server. |
+| **MongoDB Atlas connection times out** | Network Access not allowing | Add `0.0.0.0/0` to Atlas Network Access (for free tier learning) or the platform's IPs. |
+| **Clerk auth fails in prod** | Using dev keys or wrong origins | Use production Clerk keys. Add the deployed URL to Clerk allowed origins. |
+| **Images not loading (ImageKit)** | Wrong URL endpoint | Check `IMAGEKIT_URL_ENDPOINT`; stored messages hold absolute ImageKit URLs. |
 
 ---
 
@@ -157,7 +159,8 @@ This document covers common issues you might encounter while developing **rtcame
 - [`WEBHOOKS_CRON.md`](./WEBHOOKS_CRON.md) – Webhook/cron issues
 - [`DEPLOYMENT.md`](./DEPLOYMENT.md) – Deployment-specific issues
 - [`DATABASE.md`](./DATABASE.md) – DB schema/issues
+- [`../BUGS.md`](../BUGS.md) – Known bugs and deferred fixes
 
 ---
 
-*Last updated: Initial troubleshooting guide covering common local/dev/deploy issues. Will expand as real issues are encountered.*
+*Last updated: reflects the current backend (Clerk session auth, messages, uploads, webhooks, partial Socket.IO) and the single-container deployment.*

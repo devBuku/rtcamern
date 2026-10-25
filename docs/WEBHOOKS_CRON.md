@@ -151,21 +151,18 @@ cron.schedule("0 2 * * *", async () => {
 
 ### Starting Cron Jobs
 
-Cron jobs should start when the server boots. Register them in `backend/src/index.ts` or in `backend/src/cron/index.ts` after DB connection is established.
+Cron jobs start when the server boots, **after** the DB connection succeeds. The actual implementation:
 
 ```ts
-// index.ts (conceptual)
-import connectDB from "./lib/db";
-import "./cron"; // imports and starts cron jobs
+// backend/src/index.ts
+import job from "./lib/cron";
+
+await connectToDb();
+server.listen(PORT, ...);
+if (NODE_ENV === "production") job.start();
 ```
 
-Or explicitly:
-```ts
-// cron/index.ts
-import "./cleanupTemp";
-import "./inactiveUsers";
-console.log("[CRON] Jobs registered");
-```
+`backend/src/lib/cron.ts` exports a single `CronJob`. Starting it only in production keeps local dev and tests free of outbound health pings. The multi-file `backend/src/cron/index.ts` layout sketched in earlier drafts does not exist.
 
 ---
 

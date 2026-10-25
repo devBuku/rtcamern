@@ -138,7 +138,7 @@ Protected routes require a valid Clerk token. All of these are implemented:
 See [`ENV.md`](./ENV.md) for full list. Key auth-related vars:
 
 - **Backend:** `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`, `FRONTEND_URL`
-- **Frontend:** `VITE_CLERK_PUBLISHABLE_KEY`, `VITE_API_URL`
+- **Frontend:** `VITE_CLERK_PUBLISHABLE_KEY` (`VITE_API_URL` is planned — no API client yet)
 
 ---
 

@@ -2,7 +2,7 @@
 
 This document explains all environment variables used in the **rtcamern** project. It covers what each variable is for, where to get it, and safe defaults for local development.
 
-Since this is a learning project, understanding each variable and its purpose is important. As features are implemented (Clerk, ImageKit, CORS, etc.), this file will be updated to reflect the actual `.env` requirements.
+Since this is a learning project, understanding each variable and its purpose is important. This file tracks the actual `.env` requirements; optional/planned variables are called out.
 
 ---
 
@@ -20,7 +20,7 @@ Backend environment variables live in `backend/.env`. An example is provided in 
 | **`MONGO_URI_DOCKER`** | `string` | Optional (dev/test) | `mongodb://localhost:27017` | MongoDB connection string (without database name) used when `NODE_ENV=development` or `test`. | Preferred for local Docker dev. If not set, falls back to `MONGO_URI`. |
 | **`DB_NAME`** | `string` | Optional | `rtcamern` | Database name passed to Mongoose (`dbName`). | Kept separate from URI so same cluster can host multiple databases cleanly. |
 | **`FRONTEND_URL`** | `string` | Optional | `http://localhost:5173` | Frontend URL allowed for CORS and used for allowed origins. | Update on deployment (e.g., Netlify/Vercel URL). |
-| **`CLERK_PUBLISHABLE_KEY`** | `string` | Yes (Auth) | — | Publishable key used by `@clerk/express` to resolve the Clerk frontend API. | Same value as the frontend key. |
+| **`CLERK_PUBLISHABLE_KEY`** | `string` | Optional | — | Present in `.env.example` for parity with Clerk's dashboard. | **Not read by the backend code** — the frontend uses `VITE_CLERK_PUBLISHABLE_KEY`. |
 | **`CLERK_SECRET_KEY`** | `string` | Yes (Auth) | — | Clerk backend secret key for verifying JWTs and calling Clerk APIs. | Never expose to frontend. |
 | **`CLERK_WEBHOOK_SIGNING_SECRET`** | `string` | Optional (Webhooks) | — | Webhook signing secret to verify Clerk webhook events. | The webhook returns `503` when unset. |
 | **`IMAGEKIT_PRIVATE_KEY`** | `string` | Yes (Media) | — | ImageKit private key used server-side by `@imagekit/nodejs`. **Never expose to frontend.** | Validated at import time; the server won't start without it. |
@@ -55,10 +55,10 @@ Frontend environment variables live in `frontend/.env`. Vite requires variables 
 
 ## `.env.example` Files
 
-- **`backend/.env.example`** – Should contain placeholder values for all required backend env vars with comments explaining each (as features are added).
-- **`frontend/.env.example`** – Should contain placeholder values for all `VITE_*` vars with comments (as features are added).
+- **`backend/.env.example`** – Exists and lists every backend variable (Mongo, Clerk, ImageKit, `FRONTEND_URL`).
+- **`frontend/.env.example`** – **Does not exist yet.** Create `frontend/.env` manually with `VITE_CLERK_PUBLISHABLE_KEY`.
 
-Keeping `.env.example` up to date is crucial for new contributors and for documenting the setup process. This will be maintained alongside code changes.
+Keeping examples up to date is crucial for new contributors and for documenting the setup process. This will be maintained alongside code changes.
 
 ---
 
@@ -81,4 +81,4 @@ Keeping `.env.example` up to date is crucial for new contributors and for docume
 
 ---
 
-*Last updated: Reflects current state (server, MongoDB, Clerk, ImageKit, and message uploads).*
+*Last updated: reflects the server, MongoDB, Clerk, ImageKit, and upload variables actually read by the code; frontend currently needs only `VITE_CLERK_PUBLISHABLE_KEY`.*

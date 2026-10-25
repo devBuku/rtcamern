@@ -8,13 +8,16 @@ All tools recommended are **free tier friendly**, matching the project's goal.
 
 ## Overview
 
-Deployment consists of three parts:
+The shipped deployment is a **single container**: one Render web service running the repo's `Dockerfile`, which builds the Vite frontend into `/app/public` and the Express API into `/app/dist`. Express serves both, so there is no separate frontend host and no cross-origin CORS.
 
 1. **Database** – [MongoDB Atlas](https://www.mongodb.com/atlas) (free M0 cluster)
-2. **Backend** – [Render](https://render.com/) or [Railway](https://railway.app/) (Node.js/Express + Socket.IO)
-3. **Frontend** – [Netlify](https://www.netlify.com/) or [Vercel](https://vercel.com/) (React + Vite)
+2. **App** – [Render](https://render.com/) (Docker web service; Socket.IO shares the same HTTP server)
+3. **Frontend** – built into the image and served by Express
 
 Clerk and ImageKit are already cloud-based (we just use their keys).
+
+> Splitting frontend (Netlify/Vercel) and backend (Render/Railway) is possible and described at the end, but the frontend has no API/socket client yet, so the monolith is the only wired path.
+
 
 ---
 
@@ -22,8 +25,7 @@ Clerk and ImageKit are already cloud-based (we just use their keys).
 
 - Git repo with all code committed and pushed (GitHub/GitLab/Bitbucket)
 - [MongoDB Atlas](https://www.mongodb.com/atlas) account (free)
-- [Render](https://render.com/) or [Railway](https://railway.app/) account (free)
-- [Netlify](https://www.netlify.com/) or [Vercel](https://vercel.com/) account (free)
+- [Render](https://render.com/) account (free)
 - [Clerk](https://clerk.com/) app configured (production keys)
 - [ImageKit](https://imagekit.io/) account configured
 
@@ -49,88 +51,46 @@ Clerk and ImageKit are already cloud-based (we just use their keys).
 
 ---
 
-## 3. Backend Deployment
+## 3. Deploy the App (Render + Docker)
 
-You can choose either Render or Railway. Both support Node.js apps and free tiers.
-
-### Option A: Render
-
-[Render](https://render.com/) free tier is suitable for learning projects (web service).
-
-#### Steps
-
-1. Push backend code to GitHub
+1. Push the repo to GitHub
 2. Sign in to [render.com](https://render.com/) and connect GitHub
-3. New → Web Service → Select your repo
+3. New → **Web Service** → select the repo
 4. Configure:
-   - **Name:** `rtcamern-backend`
-   - **Root Directory:** `backend` (if monorepo)
-   - **Runtime:** Node
-   - **Build Command:** `yarn install && yarn build`
-   - **Start Command:** `yarn start`
-
+   - **Name:** `rtcamern`
+   - **Root Directory:** repo root (the `Dockerfile` needs both `backend/` and `frontend/`)
+   - **Runtime:** **Docker**
+   - **Dockerfile Path:** `./Dockerfile`
+   - **Build Arg:** `VITE_CLERK_PUBLISHABLE_KEY` (Vite inlines it at build time — set it in the Render UI, not at runtime)
 5. Add **Environment Variables** (from [`ENV.md`](./ENV.md)):
-   - `PORT` (Render may set automatically; can use `process.env.PORT`)
-   - `MONGO_URI` – Atlas SRV string
-   - `CLERK_PUBLISHABLE_KEY`
+   - `NODE_ENV=production` (already set in the image; harmless to repeat)
+   - `MONGO_URI` – Atlas SRV string (**required** in production)
+   - `DB_NAME=rtcamern`
    - `CLERK_SECRET_KEY`
-   - `CLERK_WEBHOOK_SIGNING_SECRET`
-   - `IMAGEKIT_PRIVATE_KEY`, `IMAGEKIT_URL_ENDPOINT`, `IMAGEKIT_ID`
-   - `NODE_ENV=production`
-   - `FRONTEND_URL` – Your deployed frontend URL (e.g., Netlify/Vercel)
-
-6. Create Web Service. Render will build and deploy.
-7. Get the public URL (e.g., `https://rtcamern-backend.onrender.com`)
+   - `CLERK_WEBHOOK_SIGNING_SECRET` – optional; the webhook returns `503` without it
+   - `IMAGEKIT_PRIVATE_KEY`, `IMAGEKIT_URL_ENDPOINT`, `IMAGEKIT_ID` – **all required**; the container exits without them
+   - `FRONTEND_URL` – the service's own public URL (used for CORS and the keep-alive cron)
+6. Create the service. The image sets `PORT=3001`; Render injects its own `PORT`, and the app honours it.
+7. Get the public URL (e.g., `https://rtcamern.onrender.com`) and set `FRONTEND_URL` to it.
+8. Add the Clerk webhook endpoint pointing at that URL (see below).
 
 **Free tier notes:**
-- Service may sleep after inactivity (cold start on first request)
-- 512 MB RAM, shared CPU
-- Suitable for learning/demo
-
-### Option B: Railway
-
-[Railway](https://railway.app/) is also free and easy.
-
-#### Steps
-
-1. Sign in to [railway.app](https://railway.app/) → New Project → Deploy from GitHub repo
-2. Select repo, configure `backend` as root directory
-3. Add environment variables same as above
-4. Railway auto-detects Node.js; set start command if needed (`yarn start` after build)
-5. Get public URL from deployment
+- Service sleeps after inactivity (cold start on first request). The `cron` job pings `FRONTEND_URL/health` every 14 minutes in production to reduce this.
+- 512 MB RAM, shared CPU — fine for learning/demo.
 
 ---
 
-## 4. Frontend Deployment
+## 4. Alternative: Split Hosting (not wired yet)
 
-### Option A: Netlify
+You can run the API on Render/Railway and the SPA on Netlify/Vercel instead of the monolith. This requires frontend changes that do not exist yet:
 
-1. Push frontend to GitHub
-2. Go to [netlify.com](https://www.netlify.com/) → Add new site → Import from Git
-3. Select repo, configure:
-   - **Base directory:** `frontend`
-   - **Build command:** `yarn build` (Vite builds to `dist/`)
-   - **Publish directory:** `frontend/dist`
-4. Add **Environment Variables** (VITE_* prefix):
-   - `VITE_CLERK_PUBLISHABLE_KEY`
-   - `VITE_API_URL` – Backend public URL (Render/Railway)
-   - `VITE_SOCKET_URL` – Same as API URL (or backend URL) since Socket.IO runs on same server
-   - `VITE_IMAGEKIT_URL_ENDPOINT` (optional)
-5. Deploy site
-6. Get URL (e.g., `https://rtcamern.netlify.app`)
-7. (Optional) Set custom domain
+- An API client using `VITE_API_URL` (absolute backend URL)
+- A Socket.IO client using `VITE_SOCKET_URL`
+- `FRONTEND_URL` on the backend set to the frontend origin for CORS
+- Deep-link rewrites on the static host (Netlify `_redirects`: `/* /index.html 200`; Vercel handles it)
 
-### Option B: Vercel
+Until those land, deploying the monolith (section 3) is the supported path.
 
-1. Go to [vercel.com](https://vercel.com/) → New Project → Import Git repo
-2. Configure project:
-   - **Framework:** Vite (auto-detected)
-   - **Root Directory:** `frontend`
-   - **Build Command:** `yarn build`
-   - **Output Directory:** `dist`
-3. Add VITE_* env vars same as Netlify
-4. Deploy
-5. Get URL
 
 ---
 
@@ -140,41 +100,35 @@ You can choose either Render or Railway. Both support Node.js apps and free tier
 
 1. Go to [Clerk Dashboard](https://dashboard.clerk.com/) → Your App
 2. **Allowed origins (CORS):**
-   - Add frontend URL: `https://rtcamern.netlify.app` (or Vercel)
+   - Add the deployed app URL: `https://rtcamern.onrender.com` (monolith)
    - Add local: `http://localhost:5173`
-3. **Webhooks (if implemented):**
-   - Add endpoint: `https://your-backend-url/api/webhooks/clerk`
+3. **Webhooks:**
+   - Add endpoint: `https://your-app-url/api/webhooks/clerk`
    - Select events: `user.created`, `user.updated`, `user.deleted`
-   - Copy **Signing Secret** → set as `CLERK_WEBHOOK_SIGNING_SECRET` in backend env
+   - Copy **Signing Secret** → set as `CLERK_WEBHOOK_SIGNING_SECRET` in the service env
 4. Use **production** API keys in deployment (not dev/test keys)
 
 ### CORS Configuration (Backend)
 
-In backend, configure CORS to allow frontend origin only:
+The backend calls `cors({ origin: FRONTEND_URL, credentials: true })`. With the monolith, `FRONTEND_URL` is the app's own URL, so browser requests are same-origin and CORS is mostly a no-op; it matters only if you split hosting.
+
+The Socket.IO server uses the same `FRONTEND_URL` for its own CORS config:
 
 ```ts
-import cors from "cors";
-app.use(cors({
-  origin: process.env.FRONTEND_URL,
-  credentials: true
-}));
+const io = new Server(server, { cors: { origin: [FRONTEND_URL] } });
 ```
-
-This is critical for REST + Socket.IO to work cross-origin. You can also set an array if multiple origins are needed.
 
 See [`MIDDLEWARE.md`](./MIDDLEWARE.md) for middleware details.
 
-### Socket.IO Client URL
+### Socket.IO Client URL (planned)
 
-Frontend must connect to backend WebSocket:
+The frontend has no socket client yet. When it is added, it should connect to the same origin in the monolith:
 
 ```ts
-const socket = io(import.meta.env.VITE_SOCKET_URL, {
-  auth: { token: await getToken() }
-});
+const socket = io({ query: { userId } }); // current handshake — unauthenticated
 ```
 
-Set `VITE_SOCKET_URL` to backend public URL.
+The target design authenticates with a Clerk token. See [`SOCKETS.md`](./SOCKETS.md) and [`BUGS.md`](../BUGS.md) before wiring it up.
 
 ---
 
@@ -208,11 +162,15 @@ docker build --build-arg VITE_CLERK_PUBLISHABLE_KEY=pk_live_xxx -t rtcamern:late
 docker run --rm -p 3001:3001 \
   -e MONGO_URI="mongodb+srv://<user>:<pass>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority" \
   -e DB_NAME=rtcamern \
-  -e CLERK_PUBLISHABLE_KEY=pk_live_xxx \
   -e CLERK_SECRET_KEY=sk_live_xxx \
+  -e IMAGEKIT_PRIVATE_KEY=private_xxx \
+  -e IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/your_id/ \
+  -e IMAGEKIT_ID=your_id \
   -e FRONTEND_URL=http://localhost:3001 \
   rtcamern:latest
 ```
+
+The image sets `PORT=3001` and has no `EXPOSE` instruction — publish the port with `-p` as shown.
 
 See the [README](../README.md#docker-single-container) for details.
 
@@ -225,38 +183,33 @@ See the [README](../README.md#docker-single-container) for details.
 - [ ] `.gitignore` includes `.env`, `node_modules`, `dist`
 - [ ] Backend has `build` and `start` scripts
 - [ ] Frontend builds successfully locally (`yarn build`)
-- [ ] Backend builds successfully locally (`yarn build` then `yarn start`)
-- [ ] CORS configured with correct FRONTEND_URL
-- [ ] Socket.IO URL points to backend
+- [ ] Backend builds successfully locally (`yarn build`)
+- [ ] `FRONTEND_URL` matches the deployed app URL (no trailing slash)
 - [ ] Webhook endpoint configured in Clerk
 
 ### Deploy Database
 - [ ] MongoDB Atlas cluster created
 - [ ] DB user created with strong password
-- [ ] Network Access allows deployment platform (0.0.0.0/0 or specific)
-- [ ] Connection string copied to backend env
+- [ ] Network Access allows Render (`0.0.0.0/0` or specific IPs)
+- [ ] Connection string copied to the service env as `MONGO_URI`
 
-### Deploy Backend
+### Deploy App
 - [ ] Pushed to Git
-- [ ] Web service created (Render/Railway) with root `backend`
-- [ ] All env vars set
-- [ ] Build succeeds
-- [ ] Health endpoint accessible: `https://backend-url/health` returns `{"ok":true}`
-
-### Deploy Frontend
-- [ ] Site created (Netlify/Vercel) with root `frontend`
-- [ ] VITE_* env vars set
-- [ ] Build succeeds
-- [ ] App loads at frontend URL
-- [ ] Can connect to backend (check network/socket)
-- [ ] Auth works (Clerk login)
+- [ ] Render web service created from the repo-root `Dockerfile`
+- [ ] `VITE_CLERK_PUBLISHABLE_KEY` set as a build arg
+- [ ] All runtime env vars set (Mongo, Clerk, ImageKit)
+- [ ] Image builds and the container starts
+- [ ] Health endpoint accessible: `https://app-url/health` returns `{"ok":true}`
+- [ ] App loads at the service URL (SPA served by Express)
 
 ### Post-Deploy
-- [ ] Test real-time messaging between multiple tabs/devices
-- [ ] Test file upload (if implemented)
-- [ ] Test auth flow end-to-end
-- [ ] Update README with live demo URL (placeholder until done)
-- [ ] Verify webhooks working in Clerk dashboard (if enabled)
+- [ ] Auth works (Clerk sign-in)
+- [ ] Clerk user appears in MongoDB after sign-up (webhook)
+- [ ] `GET /api/messages/users` returns data with a valid session
+- [ ] Test sending text and media via `POST /api/messages/send/:id`
+- [ ] Test `newMessage` delivery between two sockets (remember: handshake is unauthenticated — see [BUGS.md](../BUGS.md))
+- [ ] Verify webhooks in the Clerk dashboard
+- [ ] Update README with the live demo URL
 
 ---
 
@@ -265,31 +218,28 @@ See the [README](../README.md#docker-single-container) for details.
 | Issue | Cause | Solution |
 |---|---|---|
 | **CORS errors** | FRONTEND_URL mismatch or not whitelisted | Ensure backend CORS includes exact frontend URL (no trailing slash). Check env var. |
-| **Socket.IO fails to connect** | Wrong `VITE_SOCKET_URL` or backend not running | Use backend URL. Check backend logs. Ensure Socket.IO attached to HTTP server. |
+| **Socket.IO fails to connect** | Backend not running or client points at the wrong origin | In the monolith, connect with `io()` (same origin). Check backend logs; Socket.IO is attached to the same HTTP server. |
 | **MongoDB connection fails** | IP not allowed or wrong password/URI | Check Network Access in Atlas. URL-encode special chars in password. Verify MONGO_URI. |
-| **502/503 on backend** | App crashed or sleeping (Render free tier) | Check Render/Railway logs. Ensure `start` script works. Fix errors, redeploy. Cold start is normal on free tier. |
-| **Frontend build fails** | Type errors or missing env | Run `yarn build` locally to see errors. Fix TS issues. Ensure all required VITE_* vars set. |
-| **Clerk webhook fails** | Wrong secret or raw body issue | Verify `CLERK_WEBHOOK_SIGNING_SECRET`. Ensure route receives raw body before JSON parse. Check tunnel URL in Clerk. |
-| **404 on routes (SPA)** | Frontend routing fallback missing | For Vite/React Router, configure redirects. Netlify: add `_redirects` with `/* /index.html 200`. Vercel: handled automatically. |
+| **502/503 on backend** | App crashed or sleeping (Render free tier) | Check Render logs. Ensure the container starts (`node dist/index.js`). Missing ImageKit vars crash the process at import time. Cold start on free tier is normal. |
+| **Frontend build fails in Docker** | Type errors or missing build arg | Run `yarn build` in `frontend/` locally. Ensure `VITE_CLERK_PUBLISHABLE_KEY` is passed as a build arg. |
+| **Clerk webhook fails** | Wrong secret or raw body issue | Verify `CLERK_WEBHOOK_SIGNING_SECRET`. Ensure the route receives the raw body before `express.json()` (it is registered first). Check the URL in Clerk. |
+| **404 on routes (SPA)** | Static build missing or path outside the SPA fallback | The catch-all is registered only when `public` exists (Docker image). `/api/*` intentionally returns JSON 404. |
 
 ---
 
 ## 9. Useful Commands for Debugging
 
-**Check backend logs:**
+**Check logs:**
 - Render: Dashboard → Web Service → Logs
-- Railway: Project → Service → Logs
 
-**Test backend health:**
+**Test the health endpoint:**
 ```bash
-curl https://your-backend-url/health
+curl https://your-app-url/health
 ```
 
-**Test from browser console (frontend):**
-```js
-// Check env
-console.log(import.meta.env.VITE_API_URL, import.meta.env.VITE_SOCKET_URL);
-```
+**Check the static build is being served:**
+
+The SPA fallback only registers when `publicDir` (`../public` relative to `dist/`) exists — that is true in the Docker image, not in a local `yarn start`.
 
 ---
 
@@ -302,7 +252,8 @@ console.log(import.meta.env.VITE_API_URL, import.meta.env.VITE_SOCKET_URL);
 - [`SOCKETS.md`](./SOCKETS.md) – Socket.IO config
 - [`MEDIA.md`](./MEDIA.md) – ImageKit config
 - [`TROUBLESHOOTING.md`](./TROUBLESHOOTING.md) – More issues
+- [`../BUGS.md`](../BUGS.md) – Known Socket.IO issues
 
 ---
 
-*Last updated: Initial deployment guide with free tier options. Will be updated with exact commands/scripts once build setup is finalized.*
+*Last updated: reflects the single-container Docker deployment on Render (frontend served by Express); split hosting is documented as an unwired alternative.*
