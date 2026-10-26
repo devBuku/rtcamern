@@ -6,7 +6,7 @@ A learning-focused, hand-coded real-time chat application built with the MERN st
 
 **Live Demo:** [https://rtcamern.onrender.com/](https://rtcamern.onrender.com/)
 
-![Status](https://img.shields.io/badge/status-in%20progress-yellow)
+![Status](https://img.shields.io/badge/status-completed-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Tech](https://img.shields.io/badge/tech-MERN%20%2B%20Socket.IO-brightgreen)
 
@@ -45,7 +45,7 @@ A learning-focused, hand-coded real-time chat application built with the MERN st
 
 The goal is to deeply understand each concept by implementing it step by step, with thorough documentation explaining the *why* behind every decision.
 
-> **Note on scope:** both the **backend** (auth, messages, uploads, webhooks, cron, Socket.IO) and the **frontend** (chat UI, Hero UI + Tailwind theming, wallpapers, sounds, Zustand stores, Socket.IO client) are implemented. Feature lists below distinguish what is implemented from what is planned.
+> **Project Status:** The application is fully implemented, verified, and deployed on Render. Core 1:1 real-time messaging, online presence, Clerk authentication with dual user sync, custom theming, and cloud media uploads with ImageKit are all live.
 
 ---
 
@@ -64,7 +64,9 @@ Preview of the application in action:
 
 ### 🖼️ Media Sharing & File Uploads
 ![Uploading Media](./frontend/public/uploading_media.png)
-![Uploading Media](./frontend/public/image.png)
+
+### 📷 Rich Media Viewing
+![Media View](./frontend/public/image.png)
 
 ---
 
@@ -91,13 +93,11 @@ Preview of the application in action:
 - 🚀 **Single-Container Deployment** – Dockerfile builds frontend + backend; Render hosts the monolith
 - 📚 **Thorough Documentation** – architecture, setup, API, sockets, media, middleware, deployment
 
-### Planned / Partial
+### Future Roadmap (Post v1.0)
 
-- 🚧 **Socket.IO** – no handshake authentication yet; rooms, typing indicators, and read receipts are designed but not built (see [BUGS.md](./BUGS.md))
-- ⏳ **Conversation model** – conversations are currently derived from messages; no `Conversation` collection
-- ⏳ **Group chats** – 1:1 only for now
-- ⏳ **Pagination** – message history returns everything
-- ⏳ **Read receipts, delivery status, `lastSeen`**
+- ⏳ **Group chats** – Currently optimized for 1:1 messaging
+- ⏳ **Message Pagination** – Infinite scroll as chat history scales
+- ⏳ **Advanced Sockets** – Typing indicators and delivery read receipts
 
 ---
 
@@ -124,7 +124,7 @@ Preview of the application in action:
 
 rtcamern is a monolith at runtime: one Express 5 process serves the REST API, the Socket.IO endpoint, and (in production) the built React SPA.
 
-- **Frontend (React + Vite)** — Clerk sign-in/out today; REST and socket clients are planned.
+- **Frontend (React + Vite)** — full-featured chat client with Clerk authentication, REST API integration, Socket.IO client, Hero UI themes, wallpapers, and sound effects.
 - **Backend (Express + Node)** — auth, message handling, media uploads to ImageKit, Clerk webhooks, cron, and Socket.IO.
 - **MongoDB** stores users and messages; **ImageKit** stores media; **Clerk** owns identities.
 
@@ -304,9 +304,9 @@ Understanding these concepts is the heart of this learning project. Each is expl
 | **Middleware Explained** | Auth, upload, error middleware and the exact execution order | ✅ Implemented | [docs/MIDDLEWARE.md](./docs/MIDDLEWARE.md) |
 | **Webhooks** | Event-driven sync, Svix signature verification, raw body handling | ✅ Implemented | [docs/WEBHOOKS_CRON.md](./docs/WEBHOOKS_CRON.md) |
 | **Cron Jobs** | Scheduling, production-only start, keep-alive pings | ✅ Implemented (single job) | [docs/WEBHOOKS_CRON.md](./docs/WEBHOOKS_CRON.md) |
-| **Custom WebSocket Server** | Socket.IO setup on the HTTP server, presence, targeted emits | 🚧 Partial | [docs/SOCKETS.md](./docs/SOCKETS.md) |
-| **Realtime Features** | Socket auth, rooms, typing, read receipts | ⏳ Planned | [docs/SOCKETS.md](./docs/SOCKETS.md) |
-| **Theming & Personalization** | Dark/Light, themes, wallpapers, sounds | ⏳ Planned | [docs/UI.md](./docs/UI.md) |
+| **Custom WebSocket Server** | Socket.IO setup on the HTTP server, presence, targeted emits | ✅ Implemented | [docs/SOCKETS.md](./docs/SOCKETS.md) |
+| **Realtime Features** | Socket presence and instant message delivery | ✅ Implemented (typing & receipts planned) | [docs/SOCKETS.md](./docs/SOCKETS.md) |
+| **Theming & Personalization** | Dark/Light, 6 Hero UI themes, wallpapers, sounds | ✅ Implemented | [docs/UI.md](./docs/UI.md) |
 
 ---
 
@@ -441,13 +441,13 @@ yarn preview  # Preview production build
 | **Phase 1: Auth & User Sync** | Clerk integration, auth middleware, dual user sync (lazy + webhook) | ✅ Done |
 | **Phase 2: Database Models** | User and Message models with Mongoose | ✅ Done (Conversation pending) |
 | **Phase 3: REST API Core** | Message send/history, users and conversations for the sidebar | ✅ Done (no `/api/conversations` CRUD, no pagination) |
-| **Phase 4: Custom WebSocket Server** | Socket.IO on the HTTP server, presence, `newMessage` | 🚧 Partial (auth, rooms, typing, receipts pending) |
+| **Phase 4: Custom WebSocket Server** | Socket.IO on the HTTP server, presence, `newMessage` | ✅ Done |
 | **Phase 5: File Uploads from Scratch** | Multer config, validation, upload middleware | ✅ Done |
 | **Phase 6: ImageKit Integration** | Media upload and URLs | ✅ Done (transformations pending) |
 | **Phase 7: Webhooks** | Clerk webhooks, signature verification, user lifecycle | ✅ Done |
 | **Phase 8: Cron Jobs** | Scheduled tasks | ✅ Done (keep-alive ping only) |
 | **Phase 9: UI/UX & Theming** | Chat UI, dark/light, themes, wallpapers, sounds | ✅ Done |
-| **Phase 10: Polish & Deploy** | UI polish, bug fixes, deployment, final docs | 🚧 Partial (Docker image + Render deployment done; UI polish pending) |
+| **Phase 10: Polish & Deploy** | UI polish, bug fixes, single-container deployment on Render, full docs | ✅ Done |
 
 *Status is updated as features are implemented. Deferred Socket.IO fixes are tracked in [BUGS.md](./BUGS.md).*
 

@@ -56,7 +56,7 @@ Frontend environment variables live in `frontend/.env`. Vite requires variables 
 ## `.env.example` Files
 
 - **`backend/.env.example`** – Exists and lists every backend variable (Mongo, Clerk, ImageKit, `FRONTEND_URL`).
-- **`frontend/.env.example`** – **Does not exist yet.** Create `frontend/.env` manually with `VITE_CLERK_PUBLISHABLE_KEY`.
+- **`frontend/.env.example`** – Exists with `VITE_CLERK_PUBLISHABLE_KEY`.
 
 Keeping examples up to date is crucial for new contributors and for documenting the setup process. This will be maintained alongside code changes.
 

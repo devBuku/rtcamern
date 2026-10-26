@@ -65,7 +65,7 @@ Deferred fixes are tracked as a TODO checklist in [`BUGS.md`](./BUGS.md). Check 
 | Deployment | [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) |
 | Troubleshooting | [`docs/TROUBLESHOOTING.md`](./docs/TROUBLESHOOTING.md) |
 
-`docs/` holds design notes and current-behavior docs. [`SOCKETS.md`](./docs/SOCKETS.md) is the target design; the current Socket.IO implementation is partial (see [`BUGS.md`](./BUGS.md)). [`MEDIA.md`](./docs/MEDIA.md) and [`MIDDLEWARE.md`](./docs/MIDDLEWARE.md) describe the implemented upload/error flow. [`UI.md`](./docs/UI.md) and the `Conversation` model in [`DATABASE.md`](./docs/DATABASE.md) are still plans. `README.md` tracks implemented vs planned per phase — keep it in sync when a feature lands.
+`docs/` holds design notes and current-behavior docs. [`SOCKETS.md`](./docs/SOCKETS.md) documents real-time behavior and target enhancements; [`MEDIA.md`](./docs/MEDIA.md) and [`MIDDLEWARE.md`](./docs/MIDDLEWARE.md) describe the implemented upload/error flow. [`UI.md`](./docs/UI.md) details the implemented theming, wallpapers, and chat components. The `Conversation` model in [`DATABASE.md`](./docs/DATABASE.md) is a design target (conversations are currently derived from messages).
 
 ---
 

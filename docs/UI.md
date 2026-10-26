@@ -8,7 +8,7 @@ Since this is a learning project, the focus is on understanding how to build a c
 
 ## Overview
 
-The frontend will deliver a modern real-time chat experience with personalization options:
+The frontend delivers a modern real-time chat experience with personalization options:
 
 - **Dark/Light Mode** – System/user toggle with persistence
 - **Multiple Themes** – Theme variants via Hero UI + Tailwind
@@ -52,7 +52,7 @@ Hero UI provides built-in theming with CSS variables and theme switching. Combin
 - Store preference: check `localStorage` first, fallback to system preference (`prefers-color-scheme`)
 - If user is logged in, sync to `User.themePrefs` in DB for cross-device consistency
 
-### Theme Structure (Planned)
+### Theme Structure
 
 ```ts
 // Example theme prefs structure
