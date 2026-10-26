@@ -9,6 +9,7 @@ import { WallpaperProvider } from './context/WallpaperContext'
 import AuthPage from './pages/AuthPage'
 import ChatPage from './pages/ChatPage'
 import { useAuthStore } from './store/useAuthStore'
+import { useChatStore } from './store/useChatStore'
 
 function App() {
   const { isLoaded, isSignedIn } = useAuth()
@@ -17,13 +18,19 @@ function App() {
   const checkAuth = useAuthStore((state) => state.checkAuth)
   const isCheckingAuth = useAuthStore((state) => state.isCheckingAuth)
   const authError = useAuthStore((state) => state.authError)
+  const resetChat = useChatStore((state) => state.reset)
 
   useEffect(() => {
     if (!isLoaded) return
 
-    if (isSignedIn) void checkAuth()
-    else clearAuth()
-  }, [checkAuth, clearAuth, isLoaded, isSignedIn])
+    if (isSignedIn) {
+      void checkAuth()
+      return
+    }
+
+    resetChat()
+    clearAuth()
+  }, [checkAuth, clearAuth, isLoaded, isSignedIn, resetChat])
 
   const isBootstrapping = !isLoaded || (isSignedIn && isCheckingAuth)
 
