@@ -379,4 +379,4 @@ This keeps learning manageable.
 
 ---
 
-*Last updated: Initial UI/UX design covering theming, wallpapers, sounds, polish guidelines. Will evolve as UI is hand-written.*
+*Last updated: reflects the implemented theming system (Hero UI presets + dark/light toggle), wallpaper picker, keyboard sounds, and responsive chat UI using Tailwind CSS and Hero UI.*

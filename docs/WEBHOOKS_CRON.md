@@ -42,7 +42,7 @@ Clerk uses webhooks to notify our app about user lifecycle events. This helps ma
 - **Public endpoint:** Must be accessible without auth middleware (Clerk calls it directly).
 - **Raw body:** Clerk signs requests using `svix`. Signature verification requires the **raw request body** (unparsed JSON). This means the global `express.json()` middleware must be skipped for this route.
 - **Signature verification:** use `verifyWebhook` from `@clerk/backend/webhooks` (a hoisted transitive dependency of `@clerk/express`, not a direct one) to check the `svix-*` headers against `CLERK_WEBHOOK_SIGNING_SECRET`. Invalid signatures return `400`; an unset secret returns `503`.
-- **Idempotent handling:** Webhooks may be retried by Clerk. Handlers should be safe if the same event is delivered multiple times (e.g., check if user with `clerkId` already exists).
+- **Idempotent handling:** Webhooks may be retried by Clerk. Handlers should be safe if the same event is delivered multiple times (e.g., upsert by `{ $or: [{ clerkId }, { email }] }` so re-delivery and account re-creation both resolve to the same document).
 - **Error handling:** Return appropriate status codes (`200` on success, `400` on verification failure, `500` on processing failure, `503` when the secret is unset).
 
 #### Flow Diagram (Conceptual)

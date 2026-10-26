@@ -33,6 +33,7 @@
     "dev": "tsx watch ./src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "seed:users": "tsx ./src/seeds/user.seed.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "docker:up": "docker compose up -d",

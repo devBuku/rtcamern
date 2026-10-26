@@ -47,17 +47,24 @@ router.post("/", async function (req, res) {
 
       const email =
         u.email_addresses?.find((e) => e.id === u.primary_email_address_id)
-          ?.email_address ?? u.email_addresses?.[0]?.email_address;
+          ?.email_address ??
+        u.email_addresses?.[0]?.email_address ??
+        `${u.id}@placeholder.clerk`;
 
       const fullName =
         [u.first_name, u.last_name].filter(Boolean).join(" ") ||
         u.username ||
-        email?.split("@")[0];
+        email?.split("@")[0] ||
+        "User";
+
+      const filter = email
+        ? { $or: [{ clerkId: u.id }, { email }] }
+        : { clerkId: u.id };
 
       await User.findOneAndUpdate(
-        { clerkId: u.id },
-        { clerkId: u.id, email, fullName, profilePic: u.image_url },
-        { new: true, upsert: true, setDefaultsOnInsert: true },
+        filter,
+        { clerkId: u.id, email, fullName, profilePic: u.image_url || "" },
+        { returnDocument: "after", upsert: true, setDefaultsOnInsert: true },
       );
     }
 

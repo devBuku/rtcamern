@@ -33,7 +33,7 @@ Client (React + Vite)
 | Layer | Technology | Purpose | Notes |
 |---|---|---|---|
 | **Frontend** | [React](https://react.dev/) + [Vite](https://vite.dev/) + [TypeScript](https://www.typescriptlang.org/) | UI Framework & Build Tool | Fast development, type safety, and modern tooling. |
-| **Styling (Planned)** | [Tailwind CSS](https://tailwindcss.com/) + [Hero UI](https://heroui.com/) | Styling & Component Library | Enables consistent theming, dark/light mode, and reusable accessible components. |
+| **Styling** | [Tailwind CSS](https://tailwindcss.com/) + [Hero UI](https://heroui.com/) | Styling & Component Library | Enables consistent theming, dark/light mode, presets, and reusable accessible components. |
 | **Backend** | [Node.js](https://nodejs.org/) + [Express.js](https://expressjs.com/) | REST API Server | Handles API routes, business logic, authentication, and file uploads. |
 | **Real-Time** | [Socket.IO](https://socket.io/) | Custom WebSocket Server | Enables real-time messaging, typing indicators, online presence, and read receipts. Built from scratch (no Firebase/Supabase). |
 | **Database** | [MongoDB](https://www.mongodb.com/) + [Mongoose](https://mongoosejs.com/) | NoSQL Database & ODM | Stores users, conversations, and messages with schema validation. |
@@ -43,7 +43,7 @@ Client (React + Vite)
 | **Scheduled Tasks** | [cron](https://github.com/kelektiv/node-cron) | Cron Jobs | Pings `FRONTEND_URL/health` every 14 minutes in production to keep the free-tier instance awake. (`node-cron` is not installed.) |
 | **Environment** | [dotenv](https://github.com/motdotla/dotenv) | Environment Config | Manages environment variables securely. |
 
-> **Note:** Socket.IO, Multer, ImageKit, and Clerk are installed and in use (Socket.IO only partially — see [`BUGS.md`](../BUGS.md)). Tailwind CSS and Hero UI are still planned and are not in any `package.json`; scheduling uses the `cron` package, not `node-cron`.
+> **Note:** Socket.IO, Multer, ImageKit, Clerk, Tailwind CSS, and Hero UI are installed and in use (Socket.IO only partially — see [`BUGS.md`](../BUGS.md)). Scheduling uses the `cron` package, not `node-cron`.
 
 ---
 

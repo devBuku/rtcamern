@@ -30,13 +30,13 @@ The backend verifies Clerk-issued tokens on protected REST routes. Socket.IO con
 
 ## Authentication Flow
 
-### 1. Frontend Authentication (Partial)
+### 1. Frontend Authentication
 
 1. **Wrap app with ClerkProvider:** `frontend/src/main.tsx` wraps the app with `ClerkProvider` using `VITE_CLERK_PUBLISHABLE_KEY`.
-2. **Sign-in/Sign-up:** `frontend/src/App.tsx` renders Clerk's pre-built `<SignIn />` / `<SignUp />` components.
-3. **Protected routes:** still planned — there is no router or page structure yet.
-4. **Get auth token:** For API calls, use `getToken()` from `@clerk/react` (or rely on Clerk's session cookie) and send the request with credentials.
-5. **Client-side user info:** Use `useUser()` to access authenticated user details from Clerk.
+2. **Sign-in/Sign-up:** `frontend/src/pages/AuthPage.tsx` renders Clerk's pre-built `<SignIn />` / `<SignUp />` components inside a themed auth layout.
+3. **Protected routes:** `frontend/src/App.tsx` uses React Router — signed-in users see `ChatPage`, others are redirected to `/auth`.
+4. **Auth bootstrap:** On sign-in, `useAuthStore.checkAuth()` calls `GET /api/auth/me` (with credentials) and stores the MongoDB user. An `AuthErrorState` component shows a retry UI if the profile isn't synced yet.
+5. **Client-side user info:** `useAuth()` from `@clerk/react` provides `isSignedIn`/`isLoaded`; the app user (MongoDB) comes from the auth store.
 
 ### 2. Backend Token Verification
 
@@ -44,8 +44,9 @@ The backend verifies Clerk-issued tokens on protected REST routes. Socket.IO con
 2. **Resolve identity:** The middleware calls Clerk's `getAuth(req)` (session cookie or Bearer token) rather than parsing headers by hand.
 3. **Verify with Clerk:** `clerkMiddleware()` on the app plus `getAuth(req)` validates the session; `@clerk/backend` is not used directly.
 4. **Attach user context:** On success, the middleware loads the MongoDB `User` by `clerkId` and sets `req.user`.
-5. **Sync to DB:** No lazy sync — users are only created/updated by the Clerk webhook. A Clerk user missing from MongoDB gets a `404`.
-6. **Reject if missing:** No `userId` on the request returns `401 Unauthorized`.
+5. **Lazy sync:** If no MongoDB document exists for the `clerkId`, the middleware fetches the user profile from Clerk via `clerkClient.users.getUser(userId)` and upserts it using a `{ $or: [{ clerkId }, { email }] }` filter (to handle Clerk account re-creation with the same email). This ensures the user is created on first API call even if the webhook hasn't fired yet.
+6. **Fallback 404:** If the Clerk API call also fails (e.g. network error), `404` is returned — but this is now a rare edge case, not the normal path.
+7. **Reject if missing:** No `userId` on the request returns `401 Unauthorized`.
 
 **Learning point:** The middleware acts as a gatekeeper—every protected route must pass through token verification before accessing resources.
 
@@ -67,14 +68,14 @@ This ensures only authenticated users can emit/listen to real-time events.
 
 ## User Sync Strategy
 
-We need to keep MongoDB `User` documents in sync with Clerk user data. Two common approaches:
+MongoDB `User` documents are kept in sync with Clerk user data through **two complementary mechanisms**:
 
-| Approach | Pros | Cons | When to use |
-|---|---|---|---|
-| **On-demand (lazy sync)** | Simple, no webhook setup needed initially. Works if user hits a protected endpoint. | User may not exist in DB until first API call; presence setup can be delayed. | Good for initial learning/simpler setup. |
-| **Webhook-based (proactive)** | Reliable, syncs on create/update/delete regardless of app usage. Keeps data consistent. | Requires setting up Clerk webhook endpoint (ngrok/localtunnel for local dev). | Recommended for production-style behavior & better learning of webhooks. |
+| Approach | How | When it fires |
+|---|---|---|
+| **Lazy sync (on-demand)** | `authMiddleware` calls `clerkClient.users.getUser(userId)` and upserts the MongoDB document if it doesn't exist yet. | First API call after sign-up, or when the webhook hasn't been delivered. |
+| **Webhook-based (proactive)** | `POST /api/webhooks/clerk` handles `user.created`, `user.updated`, and `user.deleted` events, upserting or deleting by `clerkId`. | Whenever Clerk fires a lifecycle event (sign-up, profile change, deletion). |
 
-**Planned:** Start with **lazy sync** (in auth middleware: `findOneAndUpdate`/`findOrCreate` by `clerkId`) for simplicity, then add **Clerk webhooks** to properly handle `user.created`, `user.updated`, `user.deleted`. This matches the "webhooks explained" highlight.
+Both paths use a `{ $or: [{ clerkId }, { email }] }` filter for upserts, which prevents `E11000` duplicate-key errors when a user re-creates their Clerk account with the same email.
 
 ---
 
@@ -98,7 +99,7 @@ Handled in `backend/src/webhooks/clerk.webhook.ts`:
 - **Purpose:** Receives raw JSON payload + `svix-signature` headers from Clerk.
 - **Verification:** `verifyWebhook` from `@clerk/backend/webhooks` verifies the signature using `CLERK_WEBHOOK_SIGNING_SECRET`. Invalid signatures get `400`; an unset secret gets `503`.
 - **Handler:** Parse event type and payload, perform DB operations.
-- **Idempotency consideration:** Webhooks can be retried—design handlers to be safe if called multiple times (the handler upserts/deletes by `clerkId`).
+- **Idempotency consideration:** Webhooks can be retried—design handlers to be safe if called multiple times (the handler upserts by `{ $or: [{ clerkId }, { email }] }`, so re-delivery and account re-creation are both safe).
 - **Explain in code:** Add clear comments explaining what webhooks are, why we verify signatures, and the event flow.
 
 See [`WEBHOOKS_CRON.md`](./WEBHOOKS_CRON.md) for a deeper conceptual explanation (security, testing with ngrok, localtunnel, etc.).
@@ -138,13 +139,13 @@ Protected routes require a valid Clerk token. All of these are implemented:
 See [`ENV.md`](./ENV.md) for full list. Key auth-related vars:
 
 - **Backend:** `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SIGNING_SECRET`, `FRONTEND_URL`
-- **Frontend:** `VITE_CLERK_PUBLISHABLE_KEY` (`VITE_API_URL` is planned — no API client yet)
+- **Frontend:** `VITE_CLERK_PUBLISHABLE_KEY` (the frontend has an API client via `axiosInstance` and a socket client via `socket.io-client`)
 
 ---
 
 ## Implementation Notes
 
-- **Auth middleware:** `backend/src/middlewares/auth.middleware.ts` resolves `getAuth(req)`, loads the MongoDB `User` by `clerkId`, and sets the optional `req.user`.
+- **Auth middleware:** `backend/src/middlewares/auth.middleware.ts` resolves `getAuth(req)`, loads the MongoDB `User` by `clerkId`, and sets the optional `req.user`. If no document exists, it lazily syncs the user from Clerk via `clerkClient.users.getUser()` before returning `404`.
 - **Error handling:** Return appropriate status codes (401 for unauth, 403 for forbidden). See [`MIDDLEWARE.md`](./MIDDLEWARE.md) for error middleware.
 - **TypeScript types:** `backend/src/types/express.d.ts` augments `Express.Request` with an **optional** `user`, so every handler must guard it.
 - **Testing locally:** Use Clerk's test keys or development instance. For webhooks, use tools like [ngrok](https://ngrok.com/) or [localtunnel](https://theboroer.github.io/localtunnel-www/) to expose local server to Clerk.
@@ -162,4 +163,4 @@ See [`ENV.md`](./ENV.md) for full list. Key auth-related vars:
 
 ---
 
-*Last updated: reflects the implemented Clerk REST authentication, user sync, and webhook flow. Socket authentication is still planned (see [BUGS.md](../BUGS.md)).*
+*Last updated: reflects the implemented Clerk REST authentication, dual user sync (lazy + webhook), and the frontend auth flow with routing and stores. Socket authentication is still planned (see [BUGS.md](../BUGS.md)).*

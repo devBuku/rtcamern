@@ -73,7 +73,7 @@ Some routes (like health check and webhooks) are public and do not require auth.
 
 #### Notes
 - Uses Auth Middleware to verify the Clerk token and load the user by `clerkId`.
-- Sync is **webhook-only** (`user.created` / `user.updated` / `user.deleted`). There is no lazy sync: if the user is not in MongoDB yet, this returns `404` with `{ "message": "User profile is not synced yet" }`.
+- Sync uses a **dual strategy**: the auth middleware lazily syncs users from Clerk via `clerkClient.users.getUser()` on first access; the Clerk webhook (`user.created` / `user.updated` / `user.deleted`) keeps the profile up to date proactively. Both paths upsert using `{ $or: [{ clerkId }, { email }] }` to handle account re-creation gracefully. A `404` with `{ "message": "User profile is not synced yet" }` now only occurs if the Clerk API call also fails.
 - See [`AUTH.md`](./AUTH.md) for full auth flow.
 
 ---

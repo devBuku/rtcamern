@@ -38,7 +38,7 @@ The User model represents an authenticated user in the application. Users are au
 #### Design Rationale
 
 - **`clerkId` as unique identifier:** Clerk is the source of truth for authentication. Storing `clerkId` avoids duplicating auth logic and makes webhook/user sync straightforward.
-- **Webhook-driven sync:** `user.created` / `user.updated` upsert by `clerkId`; `user.deleted` removes the document.
+- **Webhook-driven sync:** `user.created` / `user.updated` upsert by `{ $or: [{ clerkId }, { email }] }`; `user.deleted` removes the document. A lazy sync in the auth middleware also upserts on first API call if the webhook hasn't fired yet.
 - **Future state:** Presence (`online`, `lastSeen`) and UI preferences (theme, wallpaper, sound) are planned but not implemented.
 
 #### Indexes

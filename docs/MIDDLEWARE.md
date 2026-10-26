@@ -27,7 +27,7 @@ The auth middleware protects routes by ensuring only authenticated users can acc
 - Prevent unauthenticated access to protected endpoints (conversations, messages, uploads, etc.).
 - Resolve the Clerk identity from the request (`getAuth(req)`, e.g. session cookie or Bearer token).
 - Attach `req.user` containing the MongoDB user for downstream controllers.
-- Load (not create) the MongoDB `User` by `clerkId`; creation is webhook-only.
+- Load the MongoDB `User` by `clerkId`; if not found, lazily sync the user from Clerk via `clerkClient.users.getUser()` and upsert into MongoDB.
 
 ### Expected Location
 
@@ -38,9 +38,10 @@ The auth middleware protects routes by ensuring only authenticated users can acc
 1. **Resolve identity:** Call `getAuth(req)`; Clerk's middleware has already validated the session cookie or Bearer token.
 2. **Reject anonymous:** With no `userId`, respond `401 { message: "Unauthorized" }`.
 3. **Load the app user:** `User.findOne({ clerkId: userId }).select("-__v")`.
-4. **Reject unsynced users:** If no document exists, respond `404` — sync is webhook-only, there is no lazy create.
-5. **Attach context:** Set `req.user` to the MongoDB document.
-6. **Pass to next:** Call `next()`; unexpected errors respond `500`.
+4. **Lazy sync if missing:** If no document exists, call `clerkClient.users.getUser(userId)` and upsert the user into MongoDB using a `{ $or: [{ clerkId }, { email }] }` filter. This handles first-login-before-webhook and Clerk account re-creation scenarios.
+5. **Reject unsynced users:** If both the DB lookup and Clerk API call fail, respond `404`.
+6. **Attach context:** Set `req.user` to the MongoDB document.
+7. **Pass to next:** Call `next()`; unexpected errors respond `500`.
 
 ### Learning Points
 
@@ -58,7 +59,7 @@ The auth middleware protects routes by ensuring only authenticated users can acc
 
 ### Current Behavior
 
-The implementation matches the flow above (no custom error classes, no lazy sync). It is applied to every route via `router.use(authMiddleware)` in `backend/src/routes/auth.route.ts` and `backend/src/routes/message.route.ts`. Because `req.user` is typed optional, handlers must guard it.
+The implementation matches the flow above (no custom error classes). It lazily syncs users from Clerk when they are not yet in MongoDB, then falls back to `404` only when the Clerk API call also fails. It is applied to every route via `router.use(authMiddleware)` in `backend/src/routes/auth.route.ts` and `backend/src/routes/message.route.ts`. Because `req.user` is typed optional, handlers must guard it.
 
 ---
 

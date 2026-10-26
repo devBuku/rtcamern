@@ -44,7 +44,7 @@ A learning-focused, hand-coded real-time chat application built with the MERN st
 
 The goal is to deeply understand each concept by implementing it step by step, with thorough documentation explaining the *why* behind every decision.
 
-> **Note on scope:** the **backend** is well along (auth, messages, uploads, webhooks, cron, Socket.IO). The **frontend** is still a skeleton: it renders Clerk's sign-in/sign-up buttons and nothing else. Feature lists below distinguish what is implemented from what is planned.
+> **Note on scope:** both the **backend** (auth, messages, uploads, webhooks, cron, Socket.IO) and the **frontend** (chat UI, Hero UI + Tailwind theming, wallpapers, sounds, Zustand stores, Socket.IO client) are implemented. Feature lists below distinguish what is implemented from what is planned.
 
 ---
 
@@ -53,8 +53,11 @@ The goal is to deeply understand each concept by implementing it step by step, w
 ### Implemented
 
 - 💬 **1:1 Messaging API** – send text and/or one image/video, fetch history, derive conversation list
-- 🔐 **Authentication with Clerk** – `clerkMiddleware()` + a custom `authMiddleware` on protected routes
-- 👥 **User Sync via Webhook** – `user.created` / `user.updated` / `user.deleted` upserted/deleted by `clerkId`
+- 🔐 **Authentication with Clerk** – `clerkMiddleware()` + a custom `authMiddleware` with dual user sync
+- 👥 **Dual User Sync** – lazy sync on first access via `clerkClient.users.getUser()` + proactive Clerk webhooks (`user.created` / `user.updated` / `user.deleted`) with account re-linking (`{ $or: [{ clerkId }, { email }] }`)
+- 🎨 **Responsive Chat UI** – sidebar, chat header, message list, media bubbles, and composer built with Hero UI & Tailwind CSS
+- 🎭 **Theming, Wallpapers & Sounds** – dark/light toggle, 6 Hero UI theme presets, frame wallpapers, and keyboard sound effects
+- ⚡ **Client State Management** – Zustand stores for auth and chat with local persistence and Socket.IO listener binding
 - 🟢 **Online Presence (in-memory)** – `userSocketMap` tracks connected users; `getOnlineUsers` broadcasts the list
 - 🔔 **Realtime Message Delivery** – `sendMessage` emits `newMessage` to the receiver's socket
 - 🖼️ **Image & Video Sharing** – one media attachment per message
@@ -62,6 +65,7 @@ The goal is to deeply understand each concept by implementing it step by step, w
 - ☁️ **ImageKit Integration** – buffer uploaded to ImageKit, URL stored on the message
 - 🧱 **Custom Middleware** – auth, upload, and centralized error handling with explanations
 - ⏰ **Cron Job** – keep-alive health ping every 14 minutes (production only)
+- 🌱 **Database Seeding** – `yarn seed:users` seeds mock profiles for local chat testing
 - 🌐 **REST API** – users, conversations, messages, auth, Clerk webhook
 - 💾 **MongoDB Integration** – Mongoose `User` and `Message` schemas
 - 🚀 **Single-Container Deployment** – Dockerfile builds frontend + backend; Render hosts the monolith
@@ -70,10 +74,8 @@ The goal is to deeply understand each concept by implementing it step by step, w
 ### Planned / Partial
 
 - 🚧 **Socket.IO** – no handshake authentication yet; rooms, typing indicators, and read receipts are designed but not built (see [BUGS.md](./BUGS.md))
-- 🚧 **Frontend** – no chat UI, router, API client, or socket client yet
 - ⏳ **Conversation model** – conversations are currently derived from messages; no `Conversation` collection
 - ⏳ **Group chats** – 1:1 only for now
-- ⏳ **Theming** – dark/light, multiple themes, wallpapers, keyboard sounds (requires Tailwind CSS + Hero UI, not installed)
 - ⏳ **Pagination** – message history returns everything
 - ⏳ **Read receipts, delivery status, `lastSeen`**
 
@@ -83,8 +85,8 @@ The goal is to deeply understand each concept by implementing it step by step, w
 
 | Layer | Technology | Notes |
 |---|---|---|
-| **Frontend** | [React](https://react.dev/) 19 + [Vite](https://vite.dev/) 8 + TypeScript | React Compiler enabled; only Clerk sign-in/out so far |
-| **Styling** | Plain CSS (`App.css`, `index.css`) | [Tailwind CSS](https://tailwindcss.com/) + [Hero UI](https://heroui.com/) are **planned, not installed** |
+| **Frontend** | [React](https://react.dev/) 19 + [Vite](https://vite.dev/) 8 + TypeScript | React Compiler, React Router, Zustand, Axios, Socket.IO client |
+| **Styling** | [Tailwind CSS](https://tailwindcss.com/) 4 + [Hero UI](https://heroui.com/) 3 | Theme presets, dark/light mode, wallpapers, accessible components |
 | **Backend** | [Node.js](https://nodejs.org/) 22 + [Express](https://expressjs.com/) 5 + TypeScript | TypeScript `^7.0.2` |
 | **Real-Time** | [Socket.IO](https://socket.io/) 4 | Custom server, attached to the same HTTP server as the API |
 | **Database** | [MongoDB](https://www.mongodb.com/) + [Mongoose](https://mongoosejs.com/) 9 | External database (Atlas in production) |
@@ -393,6 +395,7 @@ Split hosting (Netlify/Vercel frontend + Render backend) is documented as an alt
 yarn dev        # Start dev server with tsx watch
 yarn build      # Compile TypeScript with tsc (outputs to dist/)
 yarn start      # Run the compiled app (node dist/index.js)
+yarn seed:users # Seed mock users for the chat sidebar (src/seeds/user.seed.ts)
 yarn lint       # ⚠️ currently broken: typescript-eslint does not support TS 7.0
 yarn format     # Prettier
 yarn docker:up  # Start local MongoDB via docker compose
@@ -417,7 +420,7 @@ yarn preview  # Preview production build
 | Phase | Focus | Status |
 |---|---|---|
 | **Phase 0: Foundation** | Repo setup, backend/frontend init, health route, docs structure | ✅ Done |
-| **Phase 1: Auth & User Sync** | Clerk integration, auth middleware, protected routes, webhook sync | ✅ Done |
+| **Phase 1: Auth & User Sync** | Clerk integration, auth middleware, dual user sync (lazy + webhook) | ✅ Done |
 | **Phase 2: Database Models** | User and Message models with Mongoose | ✅ Done (Conversation pending) |
 | **Phase 3: REST API Core** | Message send/history, users and conversations for the sidebar | ✅ Done (no `/api/conversations` CRUD, no pagination) |
 | **Phase 4: Custom WebSocket Server** | Socket.IO on the HTTP server, presence, `newMessage` | 🚧 Partial (auth, rooms, typing, receipts pending) |
@@ -425,7 +428,7 @@ yarn preview  # Preview production build
 | **Phase 6: ImageKit Integration** | Media upload and URLs | ✅ Done (transformations pending) |
 | **Phase 7: Webhooks** | Clerk webhooks, signature verification, user lifecycle | ✅ Done |
 | **Phase 8: Cron Jobs** | Scheduled tasks | ✅ Done (keep-alive ping only) |
-| **Phase 9: UI/UX & Theming** | Chat UI, dark/light, themes, wallpapers, sounds | ⏳ Planned |
+| **Phase 9: UI/UX & Theming** | Chat UI, dark/light, themes, wallpapers, sounds | ✅ Done |
 | **Phase 10: Polish & Deploy** | UI polish, bug fixes, deployment, final docs | 🚧 Partial (Docker image + Render deployment done; UI polish pending) |
 
 *Status is updated as features are implemented. Deferred Socket.IO fixes are tracked in [BUGS.md](./BUGS.md).*

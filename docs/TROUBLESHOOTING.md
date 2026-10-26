@@ -88,7 +88,7 @@ This document covers common issues you might encounter while developing **rtcame
 | **401 on protected API calls** | No Clerk session | `authMiddleware` calls `getAuth(req)`, which reads the Clerk session cookie or a Bearer token. Send the request with credentials (`credentials: "include"` if cross-origin). |
 | **Token verification fails on backend** | Wrong `CLERK_SECRET_KEY` | Verify the secret key is set for the running process. Verification is done by `clerkMiddleware()` + `getAuth(req)` from `@clerk/express` — not `jsonwebtoken`. |
 | **Redirect issues after login** | Wrong redirect URLs in Clerk | Add the app URL to allowed redirect/origin in Clerk Dashboard. |
-| **User not synced to DB** | Webhook missing or failing | There is **no lazy sync**: the user is only created by the Clerk webhook (`/api/webhooks/clerk`). Check the webhook delivery in Clerk; `POST /api/auth/me` returns `404` until the user exists. See [`AUTH.md`](./AUTH.md). |
+| **User not synced to DB** | Webhook missing/failing and lazy sync also failed | The auth middleware now lazily syncs users from Clerk on first API call. If this still fails, check: (1) Clerk API is reachable, (2) `CLERK_SECRET_KEY` is correct, (3) the webhook is configured in Clerk Dashboard. `GET /api/auth/me` only returns `404` if both the lazy sync and webhook have failed. See [`AUTH.md`](./AUTH.md). |
 
 ---
 
@@ -115,7 +115,7 @@ This document covers common issues you might encounter while developing **rtcame
 | **Webhook returns 503** | `CLERK_WEBHOOK_SIGNING_SECRET` is unset | Set the variable and redeploy. |
 | **Webhook not receiving events (local)** | Local server not exposed | Use ngrok/localtunnel: `ngrok http 3000`. Update the webhook URL in Clerk to the public tunnel URL. |
 | **Webhook returns 500** | Handler error (DB, validation) | Check backend logs. The handler upserts/deletes by `clerkId`; failures are logged and returned as 500. |
-| **Duplicate user creation** | Idempotency issue | The handler upserts by `clerkId`; `clerkId` and `email` are unique in the schema, so duplicates should fail rather than multiply. |
+| **Duplicate user creation** | Idempotency issue | The handler upserts by `{ $or: [{ clerkId }, { email }] }`; `clerkId` and `email` are unique in the schema, and the `$or` filter prevents `E11000` duplicate-key errors when a user re-creates their Clerk account with the same email. |
 | **Events missing** | Not subscribed in Clerk Dashboard | Go to Clerk Webhooks → Edit → Select events: `user.created`, `user.updated`, `user.deleted`. |
 
 ---

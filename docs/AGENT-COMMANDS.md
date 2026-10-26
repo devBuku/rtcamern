@@ -11,6 +11,7 @@ Exact developer commands for working in this repo. Run these from the respective
 | `yarn dev` | Start dev server with `tsx watch` (hot-reload) |
 | `yarn build` | Compile TypeScript with `tsc` (outputs to `dist/`) |
 | `yarn start` | Run compiled app (`node dist/index.js`) |
+| `yarn seed:users` | Seed mock users for the chat sidebar (`src/seeds/user.seed.ts`) |
 | `yarn lint` | Run ESLint |
 | `yarn format` | Format with Prettier |
 | `yarn docker:up` | Start MongoDB container (Docker Compose) |
