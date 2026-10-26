@@ -15,6 +15,7 @@ A learning-focused, hand-coded real-time chat application built with the MERN st
 ## Table of Contents
 
 - [About](#about)
+- [App Demo & Screenshots](#app-demo--screenshots)
 - [Project Status](#project-status)
 - [Tech Stack](#tech-stack)
 - [Architecture Overview](#architecture-overview)
@@ -45,6 +46,25 @@ A learning-focused, hand-coded real-time chat application built with the MERN st
 The goal is to deeply understand each concept by implementing it step by step, with thorough documentation explaining the *why* behind every decision.
 
 > **Note on scope:** both the **backend** (auth, messages, uploads, webhooks, cron, Socket.IO) and the **frontend** (chat UI, Hero UI + Tailwind theming, wallpapers, sounds, Zustand stores, Socket.IO client) are implemented. Feature lists below distinguish what is implemented from what is planned.
+
+---
+
+## App Demo & Screenshots
+
+Preview of the application in action:
+
+### 💬 Active Conversation & Real-Time Messaging
+![Using the App](./frontend/public/using_the_app.png)
+
+### 🔐 Themed Authentication & Customization
+![Auth Page](./frontend/public/auth_page.png)
+
+### 📱 Responsive Chat Workspace
+![Chat Page](./frontend/public/chat_page.png)
+
+### 🖼️ Media Sharing & File Uploads
+![Uploading Media](./frontend/public/uploading_media.png)
+![Uploading Media](./frontend/public/image.png)
 
 ---
 
@@ -360,15 +380,13 @@ Defined in `backend/src/models/` and documented in **[docs/DATABASE.md](./docs/D
 
 ## Theming, Wallpapers & Sounds
 
-Not implemented. The plan lives in **[docs/UI.md](./docs/UI.md)**:
+Implemented using **Tailwind CSS 4** and **Hero UI 3** (detailed guide in **[docs/UI.md](./docs/UI.md)**):
 
-- **Dark/Light Mode** – Toggle with persistence
-- **Multiple Themes** – Hero UI theme variants
-- **Wallpapers** – Selectable chat background with preview
-- **Keyboard Sounds** – Optional subtle sound effects on actions
-- **UI Polish Guidelines** – Layout, spacing, typography, chat UI, responsiveness, accessibility
-
-These depend on Tailwind CSS + Hero UI, which are not in `frontend/package.json` yet.
+- **Dark/Light Mode** – Instant toggle with local storage persistence
+- **Multiple Themes** – 6 Hero UI theme presets (Default, Emerald, Violet, Amber, Rose, Cyan)
+- **Wallpapers** – 6 selectable ambient chat frame wallpapers
+- **Keyboard Sounds** – Optional sound effects on user actions and keystrokes with toggle switch
+- **UI Polish Guidelines** – Responsive layout, message bubbles, avatars with online badges, and composer controls
 
 ---
 
