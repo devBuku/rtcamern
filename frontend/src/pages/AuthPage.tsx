@@ -1,34 +1,25 @@
-import { SignInButton, SignUpButton } from '@clerk/react'
+import AuthActionPanel from '../components/auth/AuthActionPanel'
+import AuthHeader from '../components/auth/AuthHeader'
+import AuthHeroPanel from '../components/auth/AuthHeroPanel'
+import { useWallpaper } from '../context/wallpaper'
 
 function AuthPage() {
+  const { frameStyle } = useWallpaper()
+
   return (
-    <main className="flex min-h-svh flex-col items-center justify-center gap-6 p-8">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold">rtcamern</h1>
-        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-          Sign in to start chatting.
-        </p>
+    <div
+      className="box-border flex min-h-dvh flex-col p-3 sm:p-5 md:p-8"
+      style={frameStyle}
+    >
+      <div className="mx-auto flex w-full max-w-368 flex-1 flex-col overflow-clip rounded-3xl border border-border bg-background text-foreground">
+        <AuthHeader />
+
+        <main className="relative flex flex-1 flex-col overflow-hidden md:flex-row">
+          <AuthHeroPanel />
+          <AuthActionPanel />
+        </main>
       </div>
-      <div className="flex gap-3">
-        <SignInButton mode="modal">
-          <button
-            type="button"
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
-          >
-            Sign in
-          </button>
-        </SignInButton>
-        <SignUpButton mode="modal">
-          <button
-            type="button"
-            className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            Sign up
-          </button>
-        </SignUpButton>
-      </div>
-    </main>
+    </div>
   )
 }
-
 export default AuthPage
