@@ -1,19 +1,39 @@
 import { useAuth } from '@clerk/react'
+import { useEffect } from 'react'
+import { Toaster } from 'react-hot-toast'
 import { Navigate, Route, Routes } from 'react-router'
+import AuthErrorState from './components/AuthErrorState'
 import PageLoader from './components/PageLoader'
 import { ThemeProvider } from './context/ThemeContext'
 import { WallpaperProvider } from './context/WallpaperContext'
 import AuthPage from './pages/AuthPage'
 import ChatPage from './pages/ChatPage'
+import { useAuthStore } from './store/useAuthStore'
 
 function App() {
   const { isLoaded, isSignedIn } = useAuth()
 
+  const clearAuth = useAuthStore((state) => state.clearAuth)
+  const checkAuth = useAuthStore((state) => state.checkAuth)
+  const isCheckingAuth = useAuthStore((state) => state.isCheckingAuth)
+  const authError = useAuthStore((state) => state.authError)
+
+  useEffect(() => {
+    if (!isLoaded) return
+
+    if (isSignedIn) void checkAuth()
+    else clearAuth()
+  }, [checkAuth, clearAuth, isLoaded, isSignedIn])
+
+  const isBootstrapping = !isLoaded || (isSignedIn && isCheckingAuth)
+
   return (
     <ThemeProvider>
       <WallpaperProvider>
-        {!isLoaded ? (
+        {isBootstrapping ? (
           <PageLoader />
+        ) : isSignedIn && authError ? (
+          <AuthErrorState message={authError} onRetry={checkAuth} />
         ) : (
           <Routes>
             <Route
@@ -32,6 +52,7 @@ function App() {
             />
           </Routes>
         )}
+        <Toaster />
       </WallpaperProvider>
     </ThemeProvider>
   )
